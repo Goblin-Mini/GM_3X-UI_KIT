@@ -1702,33 +1702,30 @@ stub_site() {
 
 
 # Выбор страницы основного домена. Выбор сохраняется между повторными запусками установщика.
-LANDING_PAGE=system
+LANDING_PAGE=initializing
 LANDING_PAGE_FILE=/etc/kit/landing-page
 
 choose_landing_page() {
-  local saved=system
+  local saved=initializing
   [[ -s $LANDING_PAGE_FILE ]] && read -r saved <"$LANDING_PAGE_FILE"
   case $saved in
     ryazan) LANDING_PAGE=ryazan ;;
     initializing) LANDING_PAGE=initializing ;;
-    *) LANDING_PAGE=system ;;
+    *) LANDING_PAGE=initializing ;;
   esac
   [[ -n $DOMAIN ]] || return 0
   [[ $yes == no && -t 1 ]] && { : </dev/tty; } 2>/dev/null || return 0
   echo
   echo "${B}Какую страницу показывать на основном домене $DOMAIN? ${N}"
-  echo "  ${B}1${N}  Random  – случайная автоматически генерируемая заглушка ${G}[по умолчанию]${N}"
+  echo "  ${B}1${N}  Terminal – страница SYSTEM INITIALIZING ${G}[по умолчанию]${N}"
   echo "  ${B}2${N}  Ryazan  – историческая HTML-страница о Рязани"
-  echo "  ${B}3${N}  System Initializing – терминальная заглушка"
   local def=1
   [[ $LANDING_PAGE == ryazan ]] && def=2
-  [[ $LANDING_PAGE == initializing ]] && def=3
   ask_tty "Выбор [$def]: " || return 0
   REPLY=${REPLY//[[:space:]]/}
   case $REPLY in
     2) LANDING_PAGE=ryazan ;;
-    3) LANDING_PAGE=initializing ;;
-    1) LANDING_PAGE=system ;;
+    1) LANDING_PAGE=initializing ;;
     "") ;;
     *) warn "Нет такого варианта – оставляю предыдущий выбор: $LANDING_PAGE" ;;
   esac
