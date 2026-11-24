@@ -1730,13 +1730,13 @@ choose_landing_page() {
 install_landing_page() {
   install -d -m 755 /var/www/kit /etc/kit
   if [[ -n $DOMAIN ]]; then
-    printf '%s\\n' "$LANDING_PAGE" >"$LANDING_PAGE_FILE"
+    printf '%s\n' "$LANDING_PAGE" >"$LANDING_PAGE_FILE"
   fi
   if [[ $LANDING_PAGE == ryazan ]]; then
     say "Устанавливаю страницу Ryazan на основной домен"
-    curl -fLsS --retry 3 --retry-delay 2 "$KIT_RAW/pages/ryazan.html" -o /var/www/kit/index.html \\
+    curl -fLsS --retry 3 --retry-delay 2 "$KIT_RAW/pages/ryazan.html" -o /var/www/kit/index.html \
       || die "Не удалось загрузить страницу Ryazan из репозитория. Повторите установку при доступном GitHub."
-    grep -q '<title>Рязань сквозь века' /var/www/kit/index.html \\
+    grep -q '<title>Рязань сквозь века' /var/www/kit/index.html \
       || die "Загруженный файл Ryazan не прошёл проверку содержимого."
   else
     say "Устанавливаю стандартную страницу System"
