@@ -96,11 +96,32 @@ install_prowlarr(){
  [[ ! -d "$BASE/prowlarr/current" ]] || mv "$BASE/prowlarr/current" "$BASE/prowlarr/current.old"
  mv "$BASE/prowlarr/current.new" "$BASE/prowlarr/current"
  id prowlarr >/dev/null 2>&1 || useradd --system --home /var/lib/prowlarr --shell /usr/sbin/nologin prowlarr
- if [[ ! -f /var/lib/prowlarr/config.xml ]]; then
-  cat >/var/lib/prowlarr/config.xml <<EOF
-<Config><Port>$port</Port><BindAddress>*</BindAddress><UrlBase></UrlBase><InstanceName>Prowlarr</InstanceName><UpdateMechanism>BuiltIn</UpdateMechanism></Config>
-EOF
- fi
+ # Всегда применяем выбранный порт: существующий config.xml не должен сохранять старый порт.
+ need python3
+ python3 - "$port" <<'PYCFG'
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+path = Path("/var/lib/prowlarr/config.xml")
+if path.exists():
+    tree = ET.parse(path)
+    root = tree.getroot()
+else:
+    root = ET.Element("Config")
+    tree = ET.ElementTree(root)
+for key, value in {
+    "Port": sys.argv[1],
+    "BindAddress": "127.0.0.1",
+    "UrlBase": "",
+    "InstanceName": "Prowlarr",
+    "UpdateMechanism": "BuiltIn",
+}.items():
+    node = root.find(key)
+    if node is None:
+        node = ET.SubElement(root, key)
+    node.text = value
+tree.write(path, encoding="utf-8", xml_declaration=True)
+PYCFG
  cat >/etc/systemd/system/prowlarr.service <<EOF
 [Unit]
 Description=Prowlarr Indexer Manager
@@ -119,26 +140,54 @@ EOF
  chown -R prowlarr:prowlarr "$BASE/prowlarr" /var/lib/prowlarr
  systemctl daemon-reload; systemctl enable --now prowlarr
  systemctl is-active --quiet prowlarr || die "Prowlarr не запустился (journalctl -u prowlarr -n 80)"
- say "Prowlarr $latest работает: http://127.0.0.1:$(sed -n 's/.*<Port>\\([0-9]*\\)<\\/Port>.*/\\1/p' /var/lib/prowlarr/config.xml)"
+ say "Prowlarr $latest работает: http://127.0.0.1:$port"
 }
 install_jacred(){
  local installer=/opt/jacred/kit-jacred-installer.sh port=${1:-9117}
  valid_port "$port" || die "Порт должен быть от 1024 до 65535"
  need curl; need ss
+ mkdir -p /opt/jacred
  if systemctl is-active --quiet jacred 2>/dev/null; then
   say "JacRed уже запущен; обновляю через официальный установщик с сохранением данных"
   curl -fsSL https://raw.githubusercontent.com/jacred-fdb/jacred/main/jacred.sh -o "$installer"
   chmod 700 "$installer"; bash "$installer" --update
  else
-  [[ "$port" == 9117 ]] || die "JacRed upstream использует фиксированный порт 9117; другой порт здесь не поддерживается."
   port_free "$port"
-  mkdir -p /opt/jacred
   curl -fsSL https://raw.githubusercontent.com/jacred-fdb/jacred/main/jacred.sh -o "$installer"
   chmod 700 "$installer"; bash "$installer"
  fi
+ # JacRed поддерживает listenport в init.yaml; задаём выбранный порт и loopback явно.
+ need python3
+ python3 - "$port" <<'PYCFG'
+import re, sys
+from pathlib import Path
+root = Path("/opt/jacred")
+yaml = root / "init.yaml"
+conf = root / "init.conf"
+if yaml.exists():
+    path = yaml
+    text = path.read_text()
+    for key, value in (("listenip", "127.0.0.1"), ("listenport", sys.argv[1])):
+        pattern = rf"(?m)^{key}\\s*:\\s*.*$"
+        line = f"{key}: {value}"
+        text, count = re.subn(pattern, line, text, count=1)
+        if not count:
+            text = line + "\\n" + text
+    path.write_text(text)
+elif conf.exists():
+    import json
+    data = json.loads(conf.read_text())
+    data["listenip"] = "127.0.0.1"
+    data["listenport"] = int(sys.argv[1])
+    conf.write_text(json.dumps(data, indent=2) + "\\n")
+else:
+    raise SystemExit("Не найден init.yaml или init.conf JacRed")
+PYCFG
+ chown jacred:jacred /opt/jacred/init.yaml /opt/jacred/init.conf 2>/dev/null || true
+ systemctl restart jacred
  systemctl is-active --quiet jacred || die "JacRed не запустился (journalctl -u jacred -n 80)"
- say "JacRed работает на http://127.0.0.1:9117; health: curl -fsS http://127.0.0.1:9117/health"
- say "Пустая FileDB не содержит торренты. Базу-снимок можно загрузить отдельным пунктом меню."
+ say "JacRed работает на http://127.0.0.1:$port; health: curl -fsS http://127.0.0.1:$port/health"
+ say "FileDB может быть пустой. Снимок загружается отдельным пунктом меню."
 }
 jacred_db(){
  local tmp archive data_dir backup
@@ -190,16 +239,32 @@ service_control(){
 remove_service(){
  local svc=$1 confirm
  case "$svc" in torrserver|prowlarr|jacred);; *) die "Неизвестный сервис";; esac
- read -r -p "Удалить $svc? Конфигурация и база данных сохраняются. [y/N] " confirm
+ read -r -p "Полностью удалить $svc вместе с настройками и базой данных? [y/N] " confirm
  [[ ${confirm,,} == y ]] || { say "Отменено."; return; }
  systemctl disable --now "$svc" 2>/dev/null || true
- rm -f "/etc/systemd/system/$svc.service"; systemctl daemon-reload
  case "$svc" in
-  torrserver) rm -f "$BASE/torrserver/TorrServer" "$STATE/torrserver.port";;
-  prowlarr) rm -rf "$BASE/prowlarr/current" "$BASE/prowlarr/current.old";;
-  jacred) say "Исполняемые файлы и БД JacRed оставлены для безопасного удаления вручную: /opt/jacred/kit-jacred-installer.sh --remove";;
+  torrserver)
+   rm -rf "$BASE/torrserver"; rm -f "$STATE/torrserver.port"
+   rm -f /etc/systemd/system/torrserver.service
+   ;;
+  prowlarr)
+   rm -rf "$BASE/prowlarr" /var/lib/prowlarr
+   rm -f /etc/systemd/system/prowlarr.service
+   userdel prowlarr 2>/dev/null || true
+   ;;
+  jacred)
+   if [[ -x "$BASE/jacred/kit-jacred-installer.sh" ]]; then
+    bash "$BASE/jacred/kit-jacred-installer.sh" --remove
+   else
+    rm -rf /opt/jacred
+    rm -f /etc/systemd/system/jacred.service
+   fi
+   userdel jacred 2>/dev/null || true
+   ;;
  esac
- say "$svc остановлен; данные автоматически не удалены."
+ systemctl daemon-reload
+ rmdir "$STATE" "$BASE" 2>/dev/null || true
+ say "$svc полностью удалён вместе с данными и конфигурацией."
 }
 menu(){
  while :; do
@@ -210,7 +275,7 @@ menu(){
   echo "4. Загрузить базу JacRed (снимок)"
   echo "5. Проверить сервисы и адреса"
   echo "6. Управление сервисом (запуск / остановка / перезапуск / статус)"
-  echo "7. Удалить сервис (данные сохраняются)"
+  echo "7. Полностью удалить сервис (включая настройки и базу данных)"
   echo "0. Назад"
   read -r -p "Выбор: " c
   case "$c" in
