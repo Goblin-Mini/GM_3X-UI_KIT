@@ -14,8 +14,9 @@
 
 set -Eeuo pipefail
 
-# На свежем VPS в фоне идут автообновления системы и держат замок dpkg: ждём его, а не падаем.
-apt-get() { command apt-get -o DPkg::Lock::Timeout=900 "$@"; }
+# На свежем VPS автообновление Ubuntu может идти долго. Не обрываем установку
+# через 15 минут: ждём освобождения dpkg до 90 минут и даём apt тот же запас.
+apt-get() { command apt-get -o DPkg::Lock::Timeout=5400 "$@"; }
 # Обновление списков пакетов. Чужой сломанный репозиторий (например, speedtest-cli без файла Release для этой версии системы)
 # не должен ронять установку: предупреждаем и идём дальше, а если нужных пакетов не окажется – об этом скажет следующий шаг.
 apt_refresh() {
@@ -28,12 +29,19 @@ apt_refresh() {
 wait_apt_idle() {
   local i
   pgrep -f '/usr/bin/unattended-upgrade$|apt\.systemd\.daily' >/dev/null || return 0
-  printf '%s\n' "==> Система сама ставит обновления – жду, пока закончит (до 15 минут)"
-  for i in $(seq 1 180); do
-    pgrep -f '/usr/bin/unattended-upgrade$|apt\.systemd\.daily' >/dev/null || return 0
+  printf '%s\n' "==> Ubuntu выполняет фоновые обновления. Жду освобождения dpkg (до 90 минут)."
+  for i in $(seq 1 1080); do
+    pgrep -f '/usr/bin/unattended-upgrade$|apt\.systemd\.daily' >/dev/null || {
+      printf '\\n%s\\n' "==> Фоновые обновления завершились, продолжаю установку."
+      return 0
+    }
+    if (( i % 12 == 0 )); then
+      printf '   Ожидание: %d мин.\\n' "$((i * 5 / 60))"
+    fi
     sleep 5
   done
-  return 0
+  printf '%s\\n' "ОШИБКА: Ubuntu не освободила dpkg за 90 минут. Установку остановил безопасно; процессы apt не трогал." >&2
+  return 1
 }
 
 XUI_VERSION="latest"
