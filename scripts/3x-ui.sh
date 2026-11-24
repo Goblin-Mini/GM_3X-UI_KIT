@@ -717,6 +717,7 @@ main() {
     choose_masking
   fi
   if [[ -n $DOMAIN ]]; then
+    choose_landing_page
     SNI=$DOMAIN
   elif [[ -z $SNI ]]; then
     echo
@@ -883,10 +884,8 @@ main() {
     issue_domain_cert || die "Без сертификата для $DOMAIN продолжать нельзя. Исправьте причину и запустите скрипт снова."
     OPEN+=("80/tcp")
   fi
-  # Одна заглушка на сервер: её показывают nginx на 443 и Hysteria2 (masquerade), её же берёт kit net masq.
-  install -d -m 755 /var/www/kit
-  [[ -s /var/www/kit/index.html ]] || stub_site >/var/www/kit/index.html
-  chmod 644 /var/www/kit/index.html
+  # Одна выбранная страница на сервер: её показывают nginx на 443 и Hysteria2 (masquerade).
+  install_landing_page
   # Байт в байт как у nginx: $(…) срезал бы последний перевод строки, и длина ответа Hysteria2 отличалась бы.
   STUB_HTML=$(cat /var/www/kit/index.html; printf x); STUB_HTML=${STUB_HTML%x}
   local p
@@ -1702,6 +1701,50 @@ stub_site() {
 }
 
 
+# Выбор страницы основного домена. Выбор сохраняется между повторными запусками установщика.
+LANDING_PAGE=system
+LANDING_PAGE_FILE=/etc/kit/landing-page
+
+choose_landing_page() {
+  local saved=system
+  [[ -s $LANDING_PAGE_FILE ]] && read -r saved <"$LANDING_PAGE_FILE"
+  [[ $saved == ryazan ]] && LANDING_PAGE=ryazan || LANDING_PAGE=system
+  [[ -n $DOMAIN ]] || return 0
+  [[ $yes == no && -t 1 ]] && { : </dev/tty; } 2>/dev/null || return 0
+  echo
+  echo "${B}Какую страницу показывать на основном домене $DOMAIN? ${N}"
+  echo "  ${B}1${N}  System  – стандартная системная заглушка ${G}[по умолчанию]${N}"
+  echo "  ${B}2${N}  Ryazan  – историческая HTML-страница о Рязани"
+  local def=1
+  [[ $LANDING_PAGE == ryazan ]] && def=2
+  ask_tty "Выбор [$def]: " || return 0
+  REPLY=${REPLY//[[:space:]]/}
+  case $REPLY in
+    2) LANDING_PAGE=ryazan ;;
+    1) LANDING_PAGE=system ;;
+    "") ;;
+    *) warn "Нет такого варианта – оставляю предыдущий выбор: $LANDING_PAGE" ;;
+  esac
+}
+
+install_landing_page() {
+  install -d -m 755 /var/www/kit /etc/kit
+  if [[ -n $DOMAIN ]]; then
+    printf '%s\\n' "$LANDING_PAGE" >/"$LANDING_PAGE_FILE"
+  fi
+  if [[ $LANDING_PAGE == ryazan ]]; then
+    say "Устанавливаю страницу Ryazan на основной домен"
+    curl -fLsS --retry 3 --retry-delay 2 "$KIT_RAW/pages/ryazan.html" -o /var/www/kit/index.html \\
+      || die "Не удалось загрузить страницу Ryazan из репозитория. Повторите установку при доступном GitHub."
+    grep -q '<title>Рязань сквозь века' /var/www/kit/index.html \\
+      || die "Загруженный файл Ryazan не прошёл проверку содержимого."
+  else
+    say "Устанавливаю стандартную страницу System"
+    stub_site >/var/www/kit/index.html
+  fi
+  chmod 644 /var/www/kit/index.html
+}
+
 setup_nginx() {
   local web_cert=$CERT web_key=$KEY
   if [[ -n $PANEL_DOMAIN ]]; then
@@ -1733,7 +1776,7 @@ setup_nginx() {
   fi
 
   install -d -m 755 /var/www/kit
-  [[ -f /var/www/kit/index.html ]] || { if [[ -n ${STUB_HTML:-} ]]; then printf '%s' "$STUB_HTML"; else stub_site; fi; } >/var/www/kit/index.html
+  [[ -s /var/www/kit/index.html ]] || stub_site >/var/www/kit/index.html
 
   # Маршруты – из текущих подключений панели: сайты REALITY, пути WebSocket, сервисы gRPC.
   local list reality_sni xhttp_sni mt_sni steal_domain locs="" kind path port
