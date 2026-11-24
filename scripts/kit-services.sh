@@ -14,6 +14,13 @@ chmod 750 "$BASE" "$STATE"
 
 say(){ printf '==> %s\n' "$*"; }
 die(){ echo "ОШИБКА: $*" >&2; exit 1; }
+open_service_port(){
+ local port=$1
+ if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
+  ufw allow "$port/tcp" >/dev/null || die "Не удалось открыть TCP-порт $port в UFW"
+  say "UFW: разрешён входящий TCP-порт $port"
+ fi
+}
 need(){ command -v "$1" >/dev/null 2>&1 || die "Не найдена команда $1"; }
 valid_port(){ [[ ${1:-} =~ ^[0-9]{1,5}$ ]] && ((10#$1>=1024 && 10#$1<=65535)); }
 port_free(){
@@ -74,6 +81,7 @@ WantedBy=multi-user.target
 EOF
  systemctl daemon-reload; systemctl enable --now torrserver
  systemctl is-active --quiet torrserver || die "TorrServer не запустился (journalctl -u torrserver -n 80)"
+ open_service_port "$port"
  say "TorrServer $tag работает: http://127.0.0.1:$port"
 }
 install_prowlarr(){
