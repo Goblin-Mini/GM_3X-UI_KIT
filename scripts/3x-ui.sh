@@ -999,7 +999,7 @@ main() {
   echo
   echo "${B}ПАНЕЛЬ${N}"
   if [[ $TRUSTED == yes ]]; then
-    echo "  $panel_url"
+    echo "  ${G}${B}$panel_url${N}"
   else
     echo "  Только через SSH-туннель. На вашем компьютере:"
     echo "    ssh -L $XUI_PANEL_PORT:127.0.0.1:$XUI_PANEL_PORT root@$HOST"
