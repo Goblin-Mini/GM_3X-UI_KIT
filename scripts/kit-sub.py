@@ -557,7 +557,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 # Установки до kit 1.1 держали AmneziaWG в подписке «<id>-awg» – подмешиваем её.
                 acode, _, abody = upstream(sub_id + "-awg", ua, host, accept, prefix)
                 if acode == 200 and abody:
-                    body = prefix_clash(merge_awg(body, abody), COUNTRY_PREFIX)
+                    body = merge_awg(body, abody)
+                body = prefix_clash(body, COUNTRY_PREFIX)
             elif code == 200 and ("json" in headers.get("content-type", "") or (
                     "text/plain" in headers.get("content-type", "") and body.lstrip()[:1] in (b"[", b"{"))):
                 # Панель 3.9 отдаёт JSON-подписку с Content-Type text/plain – определяем по телу.
