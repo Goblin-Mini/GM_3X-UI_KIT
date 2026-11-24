@@ -1358,7 +1358,7 @@ proto_xhttp() {
 proto_ws() {
   local settings stream
   settings=$(jq -nc --arg id "$(uuid)" --argjson c "$(client_base ws)" '{clients: [$c + {id: $id, flow: ""}], decryption: "none"}')
-  stream=$(jq -nc --argjson t "$(tls_json '["http/1.1"]')" --arg path "/$(rand_str 10 | tr 'A-Z' 'a-z')" '{network: "ws", security: "tls", wsSettings: {path: $path}, tlsSettings: $t}')
+  stream=$(jq -nc --argjson t "$(tls_json '["http/1.1"]')" --arg path "/$(rand_str 10 | tr 'A-Z' 'a-z')" --arg host "${LINK_HOST:-$HOST}" '{network: "ws", security: "tls", wsSettings: {path: $path, host: $host}, tlsSettings: $t}')
   if [[ $SINGLE == yes ]]; then
     stream=$(jq -c --argjson e "$(ext_proxy tls '["http/1.1"]')" '{network, wsSettings, security: "none", externalProxy: $e}' <<<"$stream")
     add_inbound "VLESS-WS" "${INNER[ws]}" inner vless "$settings" "$stream"
