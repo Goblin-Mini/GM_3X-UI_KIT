@@ -242,9 +242,22 @@ jacred_db(){
  say "База загружена. Предыдущая Data сохранена: $backup"
 }
 install_flaresolverr(){
- need docker; need curl
- if ! docker info >/dev/null 2>&1; then die "Docker не запущен. Проверьте systemctl status docker"; fi
- port_free "$FLARE_PORT"
+ need curl; need ss
+ if ! command -v docker >/dev/null 2>&1; then
+  say "Устанавливаю Docker для FlareSolverr"
+  apt-get update -qq
+  apt-get install -y docker.io
+ fi
+ systemctl enable --now docker
+ docker info >/dev/null 2>&1 || die "Docker не запустился. Проверьте systemctl status docker"
+ if ! docker ps -a --format "{{.Names}}" | grep -qx flaresolverr; then
+  port_free "$FLARE_PORT"
+ elif docker ps --filter name=^/flaresolverr$ --format "{{.Ports}}" | grep -q "127.0.0.1:$FLARE_PORT"; then
+  :
+ else
+  docker rm -f flaresolverr >/dev/null 2>&1 || true
+  port_free "$FLARE_PORT"
+ fi
  docker pull ghcr.io/flaresolverr/flaresolverr:latest
  docker rm -f flaresolverr >/dev/null 2>&1 || true
  docker run -d --name flaresolverr --restart unless-stopped \
