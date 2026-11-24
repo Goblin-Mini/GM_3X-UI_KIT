@@ -1292,7 +1292,7 @@ ext_proxy() { # forceTls(same|tls) alpn(JSON)
   if [[ $1 == tls && ! $tls_host =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
     sni=$tls_host
   fi
-  jq -nc --arg f "$1" --arg h "$HOST" --arg lh "$tls_host" --arg sni "$sni" --argjson alpn "${2:-null}" '[{forceTls: $f, dest: (if $f == "tls" || $f == "same" then $lh else $h end), port: 443, remark: ""}
+  jq -nc --arg f "$1" --arg h "$HOST" --arg lh "$tls_host" --arg sni "$sni" --argjson alpn "${2:-null}" '[{forceTls: $f, dest: (if ($f == "tls" or $f == "same") then $lh else $h end), port: 443, remark: ""}
     + (if $f == "tls" then {fingerprint: "chrome", alpn: $alpn} + (if $sni != "" then {sni: $sni} else {} end) else {} end)]'
 }
 
