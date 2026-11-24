@@ -1732,7 +1732,9 @@ install_landing_page() {
   if [[ -n $DOMAIN ]]; then
     printf '%s\n' "$LANDING_PAGE" >"$LANDING_PAGE_FILE"
   fi
-  if [[ $LANDING_PAGE == ryazan ]]; then
+  if [[ -z $DOMAIN && -s /var/www/kit/index.html ]]; then
+    say "Сохраняю существующую страницу сайта"
+  elif [[ $LANDING_PAGE == ryazan ]]; then
     say "Устанавливаю страницу Ryazan на основной домен"
     curl -fLsS --retry 3 --retry-delay 2 "$KIT_RAW/pages/ryazan.html" -o /var/www/kit/index.html \
       || die "Не удалось загрузить страницу Ryazan из репозитория. Повторите установку при доступном GitHub."
