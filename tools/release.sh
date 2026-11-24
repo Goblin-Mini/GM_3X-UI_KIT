@@ -22,7 +22,7 @@ key=${1:-$HOME/.ssh/3xui_kit_release}
 [[ -f $key ]] || die "Нет закрытого ключа $key. Создать: ssh-keygen -t ed25519 -C \"3X-UI KIT releases\" -f $key"
 NS="3x-ui-kit-release"
 ID="releases@3x-ui-kit"
-FILES=(scripts/3x-ui.sh scripts/hysteria2.sh scripts/kit.sh scripts/kit-sub.py VERSION)
+FILES=(scripts/3x-ui.sh scripts/hysteria2.sh scripts/kit.sh scripts/kit-services.sh scripts/kit-sub.py VERSION)
 
 v=$(tr -d '[:space:]' <VERSION)
 [[ $v =~ ^[0-9]+(\.[0-9]+)+$ ]] || die "VERSION: $v"
