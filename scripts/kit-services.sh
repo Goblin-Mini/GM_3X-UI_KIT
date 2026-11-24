@@ -154,7 +154,7 @@ import re, json
 root=Path("/opt/jacred")
 p=root/"init.yaml"
 if p.exists():
-    m=re.search(r"(?m)^listenport\\s*:\\s*(\\d+)", p.read_text())
+    m=re.search(r"(?m)^listenport\s*:\s*(\\d+)", p.read_text())
     print(m.group(1) if m else "")
 else:
     p=root/"init.conf"
@@ -185,18 +185,18 @@ if yaml.exists():
     path = yaml
     text = path.read_text()
     for key, value in (("listenip", "127.0.0.1"), ("listenport", sys.argv[1])):
-        pattern = rf"(?m)^{key}\\s*:\\s*.*$"
+        pattern = rf"(?m)^{key}\s*:\s*.*$"
         line = f"{key}: {value}"
         text, count = re.subn(pattern, line, text, count=1)
         if not count:
-            text = line + "\\n" + text
+            text = line + "\n" + text
     path.write_text(text)
 elif conf.exists():
     import json
     data = json.loads(conf.read_text())
     data["listenip"] = "127.0.0.1"
     data["listenport"] = int(sys.argv[1])
-    conf.write_text(json.dumps(data, indent=2) + "\\n")
+    conf.write_text(json.dumps(data, indent=2) + "\n")
 else:
     raise SystemExit("Не найден init.yaml или init.conf JacRed")
 PYCFG
