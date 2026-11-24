@@ -271,7 +271,12 @@ check_services(){
  done
  [[ ! -f "$STATE/torrserver.port" ]] || echo "TorrServer: http://127.0.0.1:$(cat "$STATE/torrserver.port")"
  [[ ! -f /var/lib/prowlarr/config.xml ]] || echo "Prowlarr: порт $(sed -n 's/.*<Port>\\([0-9]*\\)<\\/Port>.*/\\1/p' /var/lib/prowlarr/config.xml)"
- [[ ! -d /opt/jacred ]] || echo "JacRed: http://127.0.0.1:$JACRED_PORT"
+ [[ ! -d /opt/jacred ]] || echo "JacRed: установлен (адрес из init.yaml)"
+ if command -v docker >/dev/null 2>&1 && docker ps -a --format '{{.Names}}' | grep -qx flaresolverr; then
+  if docker inspect -f '{{.State.Running}}' flaresolverr 2>/dev/null | grep -qx true; then
+   echo "FlareSolverr: работает — http://127.0.0.1:$FLARESOLVERR_PORT"
+  else echo "FlareSolverr: остановлен"; fi
+ else echo "FlareSolverr: не установлен"; fi
 }
 service_control(){
  local svc=$1 act=$2
