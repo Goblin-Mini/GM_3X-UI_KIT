@@ -3182,12 +3182,12 @@ menu_main() {
     echo
     box "3X-UI KIT $KIT_VERSION – управление сервером" "1. Пользователи" "2. Протоколы, порты и маскировка" "3. Проверка сервера" "" \
       "4. Обновить kit и подписку" "5. Обновить панель 3X-UI" "6. Автообновление: включить или выключить" "" \
-      "7. Резервная копия" "8. Версии" "" "9. Панель 3X-UI (меню x-ui)" "10. Удалить KIT с сервера" "0. Выход"
+      "7. Резервная копия" "8. Версии" "9. Торрент-сервисы" "" "10. Панель 3X-UI (меню x-ui)" "11. Удалить KIT с сервера" "0. Выход"
     echo
     menu_status
     update_hint
     echo
-    ask_num "Выбор [0-10]: "; c=$REPLY
+    ask_num "Выбор [0-11]: "; c=$REPLY
     case $c in
       1) menu_users ;;
       2) menu_net ;;
@@ -3197,8 +3197,9 @@ menu_main() {
       6) run_action menu_auto; pause ;;
       7) run_action cmd_backup; pause ;;
       8) run_action cmd_version; pause ;;
-      9) command -v x-ui >/dev/null && x-ui || echo "Меню x-ui не найдено." ;;
-      10) run_action cmd_uninstall; pause ;;
+      9) /usr/local/bin/kit-services menu; pause ;;
+      10) command -v x-ui >/dev/null && x-ui || echo "Меню x-ui не найдено." ;;
+      11) run_action cmd_uninstall; pause ;;
       0 | "") return 0 ;;
       *) echo "Нет такого пункта." ;;
     esac
@@ -3348,6 +3349,7 @@ ${B}3X-UI KIT $KIT_VERSION${N} – команды (то же самое есть
   kit backup                 копия сервера
   kit uninstall              полное удаление (спросит подтверждение; --dry-run – только показать)
   kit version                версии
+  kit services               управление TorrServer, Prowlarr и JacRed-FDB
 EOF
 }
 
@@ -3392,6 +3394,6 @@ case "$cmd_key" in
   "uninstall"*) shift; cmd_uninstall "$@" ;;
   "check "*) shift; cmd_check "$@" ;;
   "fix "*) shift; cmd_fix "$@" ;;
-  "version "*|"--version "*|"-v "*) cmd_version ;;
+  "services") /usr/local/bin/kit-services menu ;;\n  "services "*) shift; /usr/local/bin/kit-services "$@" ;;\n  "version "*|"--version "*|"-v "*) cmd_version ;;
   *) usage; update_hint ;;
 esac
