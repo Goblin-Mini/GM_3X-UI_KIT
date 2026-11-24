@@ -35,11 +35,12 @@ prowlarr_arch(){
  case "$(uname -m)" in x86_64|amd64) echo x64;; aarch64|arm64) echo arm64;; armv7l|armv6l) echo arm;; *) die "Prowlarr не поддерживает архитектуру $(uname -m)";; esac
 }
 install_torr(){
- local port=${1:-8090} a rel latest tag asset tmp dir
+ local port=${1:-8090} a rel latest tag asset tmp dir old_port
  valid_port "$port" || die "Порт должен быть от 1024 до 65535"
  need curl; need jq; need sha256sum; need ss
  a=$(torr_arch)
- port_free "$port"
+ old_port=$(cat "$STATE/torrserver.port" 2>/dev/null || true)
+ if [[ -n "$old_port" && "$old_port" == "$port" ]]; then :; else port_free "$port"; fi
  rel=$(curl -fsSL --retry 3 'https://api.github.com/repos/YouROK/TorrServer/releases?per_page=100')
  latest=$(jq -r '[.[] | select(.draft==false and .prerelease==false and (.tag_name|startswith("MatriX.")))] | sort_by(.published_at) | last | .tag_name // empty' <<<"$rel")
  [[ "$latest" == MatriX.* ]] || die "Не удалось определить последнюю стабильную версию MatriX"
@@ -72,10 +73,12 @@ EOF
  say "TorrServer $tag работает: http://127.0.0.1:$port"
 }
 install_prowlarr(){
- local port=${1:-9696} a meta latest asset tmp dir
+ local port=${1:-9696} a meta latest asset tmp dir old_port
  valid_port "$port" || die "Порт должен быть от 1024 до 65535"
  need curl; need jq; need sha256sum; need ss
- a=$(prowlarr_arch); port_free "$port"
+ a=$(prowlarr_arch)
+ old_port=$(grep -oP '<Port>\K[0-9]+' /var/lib/prowlarr/config.xml 2>/dev/null || true)
+ if [[ -n "$old_port" && "$old_port" == "$port" ]]; then :; else port_free "$port"; fi
  meta=$(curl -fsSL --retry 3 https://api.github.com/repos/Prowlarr/Prowlarr/releases/latest)
  jq -e '.draft==false and .prerelease==false' <<<"$meta" >/dev/null || die "Последний релиз Prowlarr не стабильный"
  latest=$(jq -r '.tag_name' <<<"$meta")
@@ -127,6 +130,7 @@ install_jacred(){
   curl -fsSL https://raw.githubusercontent.com/jacred-fdb/jacred/main/jacred.sh -o "$installer"
   chmod 700 "$installer"; bash "$installer" --update
  else
+  [[ "$port" == 9117 ]] || die "JacRed upstream использует фиксированный порт 9117; другой порт здесь не поддерживается."
   port_free "$port"
   mkdir -p /opt/jacred
   curl -fsSL https://raw.githubusercontent.com/jacred-fdb/jacred/main/jacred.sh -o "$installer"
