@@ -19,3 +19,4 @@ jobs:
           bash -n scripts/3x-ui.sh
           bash -n scripts/kit.sh
           bash -n scripts/kit-services.sh
+          python3 -m py_compile scripts/kit-sub.py
