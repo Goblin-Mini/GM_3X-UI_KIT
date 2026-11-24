@@ -263,15 +263,63 @@ jacred_db(){
  say "База загружена. Предыдущая Data сохранена: $backup"
 }
 check_services(){
- local s
+ local s prowlarr_port jacred_port
  for s in torrserver prowlarr jacred; do
   if systemctl list-unit-files "$s.service" --no-legend 2>/dev/null | grep -q "$s.service"; then
    if systemctl is-active --quiet "$s"; then echo "$s: работает"; else echo "$s: остановлен/ошибка"; fi
   else echo "$s: не установлен"; fi
  done
- [[ ! -f "$STATE/torrserver.port" ]] || echo "TorrServer: http://127.0.0.1:$(cat "$STATE/torrserver.port")"
- [[ ! -f /var/lib/prowlarr/config.xml ]] || echo "Prowlarr: порт $(sed -n 's/.*<Port>\\([0-9]*\\)<\\/Port>.*/\\1/p' /var/lib/prowlarr/config.xml)"
- [[ ! -d /opt/jacred ]] || echo "JacRed: установлен (адрес из init.yaml)"
+ if [[ -f "$STATE/torrserver.port" ]]; then
+  echo "TorrServer: http://127.0.0.1:$(cat "$STATE/torrserver.port")"
+ fi
+ if [[ -f /var/lib/prowlarr/config.xml ]]; then
+  prowlarr_port=$(python3 - <<'PYPORT'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+try:
+    root = ET.parse("/var/lib/prowlarr/config.xml").getroot()
+    print((root.findtext("Port") or "").strip())
+except (ET.ParseError, OSError):
+    print("")
+PYPORT
+)
+  if [[ "$prowlarr_port" =~ ^[0-9]{1,5}$ ]]; then
+   echo "Prowlarr: http://127.0.0.1:$prowlarr_port"
+  else
+   echo "Prowlarr: порт не определён (проверьте /var/lib/prowlarr/config.xml)"
+  fi
+ fi
+ if [[ -d /opt/jacred ]]; then
+  jacred_port=$(python3 - <<'PYPORT'
+from pathlib import Path
+import json, re
+root = Path("/opt/jacred")
+yaml = root / "init.yaml"
+conf = root / "init.conf"
+port = ""
+if yaml.is_file():
+    try:
+        text = yaml.read_text()
+        match = re.search(r"(?m)^\\s*listenport\\s*:\\s*['\"]?(\\d+)", text)
+        if match:
+            port = match.group(1)
+    except OSError:
+        pass
+elif conf.is_file():
+    try:
+        data = json.loads(conf.read_text())
+        port = str(data.get("listenport", ""))
+    except (OSError, json.JSONDecodeError, AttributeError):
+        pass
+print(port if port.isdigit() and 1024 <= int(port) <= 65535 else "")
+PYPORT
+)
+  if [[ -n "$jacred_port" ]]; then
+   echo "JacRed: http://127.0.0.1:$jacred_port"
+  else
+   echo "JacRed: установлен, порт не определён (проверьте init.yaml/init.conf)"
+  fi
+ fi
  if command -v docker >/dev/null 2>&1 && docker ps -a --format '{{.Names}}' | grep -qx flaresolverr; then
   if docker inspect -f '{{.State.Running}}' flaresolverr 2>/dev/null | grep -qx true; then
    echo "FlareSolverr: работает — http://127.0.0.1:$FLARESOLVERR_PORT"
