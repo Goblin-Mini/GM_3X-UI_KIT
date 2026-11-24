@@ -1,0 +1,21 @@
+name: Shell syntax checks
+
+on:
+  push:
+    branches:
+      - fix/full-installer-domain-services-country-prefix
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  bash-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check installer scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/3x-ui.sh
+          bash -n scripts/kit.sh
+          bash -n scripts/kit-services.sh
