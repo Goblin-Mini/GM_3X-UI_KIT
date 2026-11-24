@@ -143,10 +143,27 @@ EOF
  say "Prowlarr $latest работает: http://127.0.0.1:$port"
 }
 install_jacred(){
- local installer=/opt/jacred/kit-jacred-installer.sh port=${1:-9117}
+ local installer=/opt/jacred/kit-jacred-installer.sh port=${1:-9117} current_port=""
  valid_port "$port" || die "Порт должен быть от 1024 до 65535"
  need curl; need ss
  mkdir -p /opt/jacred
+ need python3
+ current_port=$(python3 - <<'PYPORT'
+from pathlib import Path
+import re, json
+root=Path("/opt/jacred")
+p=root/"init.yaml"
+if p.exists():
+    m=re.search(r"(?m)^listenport\\s*:\\s*(\\d+)", p.read_text())
+    print(m.group(1) if m else "")
+else:
+    p=root/"init.conf"
+    if p.exists():
+        try: print(json.loads(p.read_text()).get("listenport", ""))
+        except Exception: print("")
+PYPORT
+)
+ [[ "$current_port" == "$port" ]] || port_free "$port"
  if systemctl is-active --quiet jacred 2>/dev/null; then
   say "JacRed уже запущен; обновляю через официальный установщик с сохранением данных"
   curl -fsSL https://raw.githubusercontent.com/jacred-fdb/jacred/main/jacred.sh -o "$installer"
@@ -253,8 +270,8 @@ remove_service(){
    userdel prowlarr 2>/dev/null || true
    ;;
   jacred)
-   if [[ -x "$BASE/jacred/kit-jacred-installer.sh" ]]; then
-    bash "$BASE/jacred/kit-jacred-installer.sh" --remove
+   if [[ -x /opt/jacred/kit-jacred-installer.sh ]]; then
+    bash /opt/jacred/kit-jacred-installer.sh --remove
    else
     rm -rf /opt/jacred
     rm -f /etc/systemd/system/jacred.service
