@@ -1730,7 +1730,7 @@ choose_landing_page() {
 install_landing_page() {
   install -d -m 755 /var/www/kit /etc/kit
   if [[ -n $DOMAIN ]]; then
-    printf '%s\\n' "$LANDING_PAGE" >/"$LANDING_PAGE_FILE"
+    printf '%s\\n' "$LANDING_PAGE" >"$LANDING_PAGE_FILE"
   fi
   if [[ $LANDING_PAGE == ryazan ]]; then
     say "Устанавливаю страницу Ryazan на основной домен"
