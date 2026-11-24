@@ -36,9 +36,9 @@ wait_apt_idle() {
   return 0
 }
 
-XUI_VERSION="v3.9.0"
-# SHA256 установщика 3X-UI этой версии: тег могут передвинуть, а хеш – нет (проверено 2026-09-30).
-XUI_INSTALL_SHA256="18616fe26c8f6c92db6daa2dcd7cd53c5143ee69ecfd26d8ea6dc9b2c78607a6"
+XUI_VERSION="latest"
+# SHA официального Git blob install.sh, получаем из GitHub API для выбранного стабильного тега.
+XUI_INSTALL_BLOB_SHA=""
 KIT_VERSION="1.2.1"
 # kit и kit-sub берём из того же релиза, что и этот скрипт, а не из меняющейся ветки main.
 KIT_RAW="https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/v$KIT_VERSION"
@@ -61,10 +61,11 @@ XUI_ENV=/etc/x-ui/install-result.env
 # Apple, iCloud, Microsoft и домены .ru сам Xray не советует – их тут нет.
 SNI_CANDIDATES=(dl.google.com www.amazon.com www.samsung.com www.yahoo.com)
 
-ALL_PROTOS=(reality reality2 hy2 xhttp ws trojan vmess ss tuic wg awg awg3 mtproto)
-# Стандартный набор; остальные протоколы (например, wg) отмечаются в «На выбор» или через --protocols.
+ALL_PROTOS=(reality reality2 hy2 xhttp ws trojan vmess ss tuic wg awg awg3 mtproto mixed)
+# Mixed — дополнительный протокол, включается только по выбору пользователя.
 DEFAULT_PROTOS=(reality hy2 xhttp ws trojan vmess ss tuic awg awg3 mtproto)
-declare -A PORTS=([xhttp]=8443 [ws]=2053 [trojan]=2083 [vmess]=2087 [ss]=8388 [tuic]=8444 [wg]=51820 [awg]=51821 [awg3]=51822 [mtproto]=8445)
+declare -A PORTS=([xhttp]=8443 [ws]=2053 [trojan]=2083 [vmess]=2087 [ss]=8388 [tuic]=8444 [wg]=51820 [awg]=51821 [awg3]=51822 [mtproto]=8445 [mixed]=1080)
+MIXED_USER=""; MIXED_PASS=""; MIXED_PORT=""
 PROTOS=(); CREATED=(); OPEN=(); NB_ALL=()
 # Режим «всё TCP на 443»: nginx разводит по SNI и путям, подключения слушают только localhost.
 SINGLE=no
@@ -300,6 +301,7 @@ choose_protocols() {
     "awg3|AmneziaWG 3.1|"
     "mtproto|MTProto для Telegram|"
     "wg|WireGuard|"
+    "mixed|Mixed (SOCKS5 + HTTP)|SOCKS5/HTTP с авторизацией по логину и паролю"
   )
   echo
   echo "${B}Какие протоколы ставить?${N}"
@@ -762,11 +764,12 @@ main() {
   wait_apt_idle
   apt_refresh
   spin_start "Ставлю пакеты"
-  apt-get install -y -qq curl jq openssl qrencode ca-certificates iproute2 ufw socat cron unzip >/dev/null
+  apt-get install -y -qq curl jq openssl qrencode ca-certificates iproute2 ufw socat cron unzip python3 >/dev/null
   spin_stop
-  ok "curl, jq, openssl, qrencode, ufw и другое"
+  ok "curl, jq, openssl, qrencode, python3, ufw и другое"
 
-  # --- официальный установщик 3X-UI с закреплённой версией ---
+  # При каждом запуске выбираем последний стабильный релиз через официальный GitHub Releases API.
+  resolve_xui_release
   step "Панель 3X-UI $XUI_VERSION"
   local panel_port panel_path panel_user panel_pass
   panel_port=$(free_port)
@@ -784,7 +787,7 @@ main() {
 
   # Данные для входа – из файла, который пишет сам установщик.
   connect_panel
-  ok "панель установлена, установщик проверен по SHA256"
+  ok "панель установлена, установщик подтверждён Git blob SHA официального release tag"
 
   if [[ $PANEL_SSL == custom ]]; then
     say "Подключаю ваш сертификат к панели"
@@ -956,6 +959,15 @@ main() {
     [[ $TRUSTED == yes ]] && { echo "Подписка ($NAME) – все протоколы одной ссылкой:"; echo "$SUB_URL"; echo; }
     echo "Отдельные подключения ($NAME):"
     echo "$links"
+    if [[ -n $MIXED_USER ]]; then
+      echo
+      echo "Mixed (SOCKS5 + HTTP):"
+      echo "Адрес:   ${LINK_HOST:-$HOST}"
+      echo "Порт:    $MIXED_PORT"
+      echo "Логин:   $MIXED_USER"
+      echo "Пароль:  $MIXED_PASS"
+      echo "Управление аккаунтами: панель 3X-UI → Входящие подключения → Mixed → Аккаунты."
+    fi
     if [[ $SINGLE == yes ]] && grep -q '^tg://' <<<"$links"; then
       echo
       echo "Telegram (tg://): порт 443 – верный, ${INNER[mtproto]} – внутренний порт сервера, снаружи закрыт."
@@ -977,6 +989,14 @@ main() {
   fi
   echo "  Логин: ${B}$XUI_USERNAME${N}      Пароль: ${B}$XUI_PASSWORD${N}"
   echo "  ${D}(сохранено в $RESULT, файл виден только root)${N}"
+  if [[ -n $MIXED_USER ]]; then
+    echo
+    echo "${B}MIXED (SOCKS5 + HTTP)${N}"
+    echo "  Сервер: $HOST:$MIXED_PORT"
+    echo "  Логин:  ${B}$MIXED_USER${N}"
+    echo "  Пароль: ${B}$MIXED_PASS${N}"
+    echo "  Учётные записи меняются в панели 3X-UI → Входящие подключения → Mixed → Аккаунты."
+  fi
   echo
   if [[ $TRUSTED == yes ]]; then
     echo "${B}ПОДПИСКА${N} – одна ссылка для всех протоколов"
@@ -999,15 +1019,40 @@ main() {
   fi
 }
 
-# Официальный установщик 3X-UI закреплённой версии, сверенный по SHA256.
+# Получаем последний стабильный релиз официальной панели и SHA Git blob его install.sh.
+resolve_xui_release() {
+  local release_json tag file_json blob
+  release_json=$(curl -fsSL --retry 3 -H 'Accept: application/vnd.github+json' \
+    "https://api.github.com/repos/$XUI_REPO/releases/latest") \
+    || die "Не удалось получить последний релиз 3X-UI из GitHub API."
+  tag=$(jq -er 'select(.draft == false and .prerelease == false) | .tag_name | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))' <<<"$release_json") \
+    || die "GitHub не вернул корректный тег последнего стабильного релиза 3X-UI."
+  file_json=$(curl -fsSL --retry 3 -H 'Accept: application/vnd.github+json' \
+    "https://api.github.com/repos/$XUI_REPO/contents/install.sh?ref=$tag") \
+    || die "Не удалось получить контрольный Git SHA официального install.sh ($tag)."
+  blob=$(jq -er '.sha | select(test("^[0-9a-f]{40}$"))' <<<"$file_json") \
+    || die "GitHub API не вернул корректный Git SHA install.sh для $tag."
+  XUI_VERSION=$tag
+  XUI_INSTALL_BLOB_SHA=$blob
+  say "Найден последний стабильный релиз 3X-UI: $XUI_VERSION"
+}
+
+# Официальный установщик проверяем по Git blob SHA, полученному из API для release tag.
 install_xui() { # порт путь логин пароль
-  local tmp
+  local tmp actual
+  [[ -n $XUI_INSTALL_BLOB_SHA ]] || resolve_xui_release
   [[ ${PANEL_SSL:-} == ip ]] && ufw_open_80
   tmp=$(mktemp)
   say "Ставлю 3X-UI $XUI_VERSION официальным установщиком (пара минут)"
   curl -fsSL --retry 3 -o "$tmp" "https://raw.githubusercontent.com/$XUI_REPO/$XUI_VERSION/install.sh"
-  [[ $(sha256sum "$tmp" | awk '{print $1}') == "$XUI_INSTALL_SHA256" ]] \
-    || die "Установщик 3X-UI $XUI_VERSION не совпал с проверенным (SHA256) – не запускаю. Сообщите нам: github.com/itsnotkubrick/3X-UI_KIT/issues"
+  actual=$(python3 - "$tmp" <<'PY'
+import hashlib, sys
+data = open(sys.argv[1], "rb").read()
+print(hashlib.sha1(b"blob " + str(len(data)).encode() + b"\\0" + data).hexdigest())
+PY
+  ) || die "Не удалось проверить контрольную сумму установщика 3X-UI."
+  [[ $actual == "$XUI_INSTALL_BLOB_SHA" ]] \
+    || die "Установщик 3X-UI $XUI_VERSION не совпал с официальным Git blob SHA – не запускаю."
   spin_start "Устанавливаю панель 3X-UI"
   if ! XUI_NONINTERACTIVE=1 XUI_SSL_MODE="${PANEL_SSL/custom/none}" XUI_SERVER_IP="$HOST" \
       XUI_PANEL_PORT="$1" XUI_WEB_BASE_PATH="$2" \
@@ -1400,6 +1445,30 @@ telegram_reachable() {
   return 1
 }
 
+proto_mixed() {
+  local remark="Mixed (SOCKS5 + HTTP)" existing settings port
+  existing=$(jq -c --arg r "$remark" '[.[] | select(.remark == $r)][0] // empty' <<<"$EXISTING")
+  if [[ -n $existing ]]; then
+    port=$(jq -r '.port' <<<"$existing")
+    settings=$(jq -c '.settings | if type == "string" then fromjson else . end' <<<"$existing")
+    MIXED_USER=$(jq -r '.accounts[0].user // empty' <<<"$settings")
+    MIXED_PASS=$(jq -r '.accounts[0].pass // empty' <<<"$settings")
+    [[ -n $MIXED_USER && -n $MIXED_PASS ]] || die "Существующий Mixed inbound не содержит логин и пароль. Проверьте его в панели 3X-UI."
+    MIXED_PORT=$port
+    CREATED+=("$remark")
+    open_port "$port" tcp
+    return
+  fi
+  port=${PORTS[mixed]}
+  port_busy "$port" tcp && port=$(free_port)
+  MIXED_USER="kit$(rand_str 5)"
+  MIXED_PASS=$(rand_str 22)
+  MIXED_PORT=$port
+  settings=$(jq -nc --arg u "$MIXED_USER" --arg p "$MIXED_PASS" \
+    '{auth: "password", accounts: [{user: $u, pass: $p}], udp: false}')
+  add_inbound "$remark" "$port" tcp mixed "$settings" '{"network":"tcp","security":"none"}'
+}
+
 proto_mtproto() {
   # MTProto бесполезен, если сам сервер не достаёт до Telegram (так бывает у отдельных хостеров).
   if ! telegram_reachable; then
@@ -1448,7 +1517,8 @@ ensure_user() {
 # подключаем основную запись, а ко второму – запись-«двойник» «имя-awg» с подпиской «<id>-awg»
 # (subId в 3X-UI обязан быть уникальным) и теми же лимитами; kit-sub подмешивает её в Clash.
 awg_ids() { api GET inbounds/list | jq -r '[.[] | select(.protocol == "amneziawg") | .id] | sort | .[]'; }
-non_awg_ids() { api GET inbounds/list | jq -c '[.[] | select(.protocol != "amneziawg") | .id]'; }
+# Mixed хранит пользователей в accounts (user/pass), а не в стандартном массиве Xray clients.
+non_awg_ids() { api GET inbounds/list | jq -c '[.[] | select(.protocol != "amneziawg" and .protocol != "mixed") | .id]'; }
 
 awg_attach() { # имя subId [лимит-байт] [срок-мс] [устройств]
   local name=$1 sid=$2 total=${3:-0} exp=${4:-0} lim=${5:-0} n=1 id email have
@@ -1497,7 +1567,7 @@ install_kit_file() {
   bash -n /usr/local/bin/kit || die "Команда kit скачалась повреждённой"
 }
 
-KIT_INSTALL_CMD="bash <(curl -fsSL https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/main/scripts/3x-ui.sh)"
+KIT_INSTALL_CMD="bash <(curl -fsSL https://raw.githubusercontent.com/Goblin-Mini/GM_3X-UI_KIT/main/scripts/3x-ui.sh)"
 
 # После «x-ui → Uninstall» меню подсказывает команду официального установщика –
 # меняем её на нашу. Только в echo: вызов установщика в «Update» не трогаем.
