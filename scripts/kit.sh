@@ -13,7 +13,7 @@ set -Eeuo pipefail
 export LC_ALL=C.UTF-8  # ширина колонок по символам, а не байтам
 
 KIT_VERSION="1.2.1"
-KIT_RAW="https://raw.githubusercontent.com/Goblin-Mini/GM_3X-UI_KIT/feature/separate-landing-and-panel-domains"
+KIT_RAW="https://raw.githubusercontent.com/Goblin-Mini/GM_3X-UI_KIT/fix/full-installer-domain-services-country-prefix"
 # Файлы новой версии берём из её тега, а не из меняющейся ветки main.
 kit_ref_raw() { echo "https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/v$1"; }
 
