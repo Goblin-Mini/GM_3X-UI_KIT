@@ -1708,19 +1708,26 @@ LANDING_PAGE_FILE=/etc/kit/landing-page
 choose_landing_page() {
   local saved=system
   [[ -s $LANDING_PAGE_FILE ]] && read -r saved <"$LANDING_PAGE_FILE"
-  [[ $saved == ryazan ]] && LANDING_PAGE=ryazan || LANDING_PAGE=system
+  case $saved in
+    ryazan) LANDING_PAGE=ryazan ;;
+    initializing) LANDING_PAGE=initializing ;;
+    *) LANDING_PAGE=system ;;
+  esac
   [[ -n $DOMAIN ]] || return 0
   [[ $yes == no && -t 1 ]] && { : </dev/tty; } 2>/dev/null || return 0
   echo
   echo "${B}Какую страницу показывать на основном домене $DOMAIN? ${N}"
   echo "  ${B}1${N}  System  – стандартная системная заглушка ${G}[по умолчанию]${N}"
   echo "  ${B}2${N}  Ryazan  – историческая HTML-страница о Рязани"
+  echo "  ${B}3${N}  System Initializing – терминальная заглушка"
   local def=1
   [[ $LANDING_PAGE == ryazan ]] && def=2
+  [[ $LANDING_PAGE == initializing ]] && def=3
   ask_tty "Выбор [$def]: " || return 0
   REPLY=${REPLY//[[:space:]]/}
   case $REPLY in
     2) LANDING_PAGE=ryazan ;;
+    3) LANDING_PAGE=initializing ;;
     1) LANDING_PAGE=system ;;
     "") ;;
     *) warn "Нет такого варианта – оставляю предыдущий выбор: $LANDING_PAGE" ;;
@@ -1734,6 +1741,12 @@ install_landing_page() {
   fi
   if [[ -z $DOMAIN && -s /var/www/kit/index.html ]]; then
     say "Сохраняю существующую страницу сайта"
+  elif [[ $LANDING_PAGE == initializing ]]; then
+    say "Устанавливаю страницу SYSTEM INITIALIZING"
+    curl -fLsS --retry 3 --retry-delay 2 "$KIT_RAW/pages/system-initializing.html" -o /var/www/kit/index.html \
+      || die "Не удалось загрузить страницу SYSTEM INITIALIZING из репозитория."
+    grep -q '<title>SYSTEM INITIALIZING</title>' /var/www/kit/index.html \
+      || die "Страница SYSTEM INITIALIZING не прошла проверку содержимого."
   elif [[ $LANDING_PAGE == ryazan ]]; then
     say "Устанавливаю страницу Ryazan на основной домен"
     curl -fLsS --retry 3 --retry-delay 2 "$KIT_RAW/pages/ryazan.html" -o /var/www/kit/index.html \
