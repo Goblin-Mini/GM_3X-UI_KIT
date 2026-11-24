@@ -99,7 +99,8 @@ install_prowlarr(){
  [[ ! -d "$BASE/prowlarr/current" ]] || mv "$BASE/prowlarr/current" "$BASE/prowlarr/current.old"
  mv "$BASE/prowlarr/current.new" "$BASE/prowlarr/current"
  # Явно выставляем права на запуск бинарника, чтобы исключить systemd 203/EXEC из-за mode.
- chmod 755 "$BASE/prowlarr/current" "$BASE/prowlarr/current/Prowlarr"
+ # Сервисный пользователь должен проходить через все каталоги пути ExecStart.
+ chmod 755 "$BASE" "$BASE/prowlarr" "$BASE/prowlarr/current" "$BASE/prowlarr/current/Prowlarr"
  id prowlarr >/dev/null 2>&1 || useradd --system --home /var/lib/prowlarr --shell /usr/sbin/nologin prowlarr
  # Всегда применяем выбранный порт: существующий config.xml не должен сохранять старый порт.
  need python3
