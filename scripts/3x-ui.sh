@@ -41,7 +41,7 @@ XUI_VERSION="latest"
 XUI_INSTALL_BLOB_SHA=""
 KIT_VERSION="1.2.1"
 # kit и kit-sub берём из того же релиза, что и этот скрипт, а не из меняющейся ветки main.
-KIT_RAW="https://raw.githubusercontent.com/Goblin-Mini/GM_3X-UI_KIT/feature/separate-landing-and-panel-domains"
+KIT_RAW="https://raw.githubusercontent.com/Goblin-Mini/GM_3X-UI_KIT/fix/full-installer-domain-services-country-prefix"
 # Ядро Xray для панели. С 26.7.x клиенты на Mihomo и sing-box (Hiddify, FlClash,
 # Clash Verge, Mihomo в XKeen) не проходят REALITY – проверено 2026-09-25.
 # 26.6.27 – последняя версия, с которой работают все клиенты и которую принимает 3X-UI.
@@ -1604,7 +1604,7 @@ install_kit_file() {
   bash -n /usr/local/bin/kit || die "Команда kit скачалась повреждённой"
 }
 
-KIT_INSTALL_CMD="bash <(curl -fsSL https://raw.githubusercontent.com/Goblin-Mini/GM_3X-UI_KIT/feature/separate-landing-and-panel-domains/scripts/3x-ui.sh)"
+KIT_INSTALL_CMD="bash <(curl -fsSL https://raw.githubusercontent.com/Goblin-Mini/GM_3X-UI_KIT/fix/full-installer-domain-services-country-prefix/scripts/3x-ui.sh)"
 
 # После «x-ui → Uninstall» меню подсказывает команду официального установщика –
 # меняем её на нашу. Только в echo: вызов установщика в «Update» не трогаем.
