@@ -3394,6 +3394,8 @@ case "$cmd_key" in
   "uninstall"*) shift; cmd_uninstall "$@" ;;
   "check "*) shift; cmd_check "$@" ;;
   "fix "*) shift; cmd_fix "$@" ;;
-  "services") /usr/local/bin/kit-services menu ;;\n  "services "*) shift; /usr/local/bin/kit-services "$@" ;;\n  "version "*|"--version "*|"-v "*) cmd_version ;;
+  "services") /usr/local/bin/kit-services menu ;;
+  "services "*) shift; /usr/local/bin/kit-services "$@" ;;
+  "version "*|"--version "*|"-v "*) cmd_version ;;
   *) usage; update_hint ;;
 esac
