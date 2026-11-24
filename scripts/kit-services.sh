@@ -154,7 +154,7 @@ import re, json
 root=Path("/opt/jacred")
 p=root/"init.yaml"
 if p.exists():
-    m=re.search(r"(?m)^listenport\s*:\s*(\\d+)", p.read_text())
+    m=re.search(r"(?m)^listenport\s*:\s*(\d+)", p.read_text())
     print(m.group(1) if m else "")
 else:
     p=root/"init.conf"
