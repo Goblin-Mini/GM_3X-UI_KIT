@@ -1285,9 +1285,14 @@ open_port() { # port net
 # External Proxy 3X-UI: ссылки ведут на HOST:443, хотя подключение слушает localhost.
 # SNI – только для TLS через nginx: у REALITY своё имя сайта маскировки, его не трогаем.
 ext_proxy() { # forceTls(same|tls) alpn(JSON)
-  local sni=""
-  [[ $HOST =~ ^[0-9.]+$ ]] || sni=$HOST
-  jq -nc --arg f "$1" --arg h "$HOST" --arg lh "${LINK_HOST:-$HOST}" --arg sni "$sni" --argjson alpn "${2:-null}" '[{forceTls: $f, dest: (if $f == "same" then $lh else $h end), port: 443, remark: ""}
+  local tls_host="${LINK_HOST:-$HOST}" sni=""
+  # TLS-терминация на nginx должна использовать домен, на который выпущен сертификат.
+  # Не подставляем IP в SNI: если LINK_HOST не задан, сохраняем прежний адрес HOST,
+  # но SNI оставляем пустым, чтобы не выдавать IP за DNS-имя.
+  if [[ $1 == tls && ! $tls_host =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+    sni=$tls_host
+  fi
+  jq -nc --arg f "$1" --arg h "$HOST" --arg lh "$tls_host" --arg sni "$sni" --argjson alpn "${2:-null}" '[{forceTls: $f, dest: (if $f == "tls" || $f == "same" then $lh else $h end), port: 443, remark: ""}
     + (if $f == "tls" then {fingerprint: "chrome", alpn: $alpn} + (if $sni != "" then {sni: $sni} else {} end) else {} end)]'
 }
 
