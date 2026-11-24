@@ -217,7 +217,7 @@ jacred_db(){
  data_dir="$tmp/Data"
  mkdir -p "$data_dir"
  say "Загружаю официальный снимок базы JacRed"
- curl -fL --retry 3 "https://sync.jacred.stream/latest.tar.zst.zip" -o "$archive" || die "Не удалось загрузить базу JacRed"
+ curl -fL --retry 3 --retry-delay 2 -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36" -e "https://jacred.stream/" "https://sync.jacred.stream/latest.tar.zst.zip" -o "$archive" || die "Сервер снимков JacRed отказал в загрузке (в том числе HTTP 403). Это отказ удалённого sync.jacred.stream, а не ошибка распаковки. База не заменена; сервис будет запущен со старой/пустой БД."
  if file -b "$archive" | grep -qi 'zip archive'; then
   unzip -oq "$archive" -d "$tmp"
   local tar_zst
