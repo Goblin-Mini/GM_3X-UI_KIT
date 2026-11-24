@@ -119,7 +119,7 @@ EOF
  chown -R prowlarr:prowlarr "$BASE/prowlarr" /var/lib/prowlarr
  systemctl daemon-reload; systemctl enable --now prowlarr
  systemctl is-active --quiet prowlarr || die "Prowlarr не запустился (journalctl -u prowlarr -n 80)"
- say "Prowlarr $latest работает: http://127.0.0.1/$(sed -n 's/.*<Port>\\([0-9]*\\)<\\/Port>.*/\\1/p' /var/lib/prowlarr/config.xml)"
+ say "Prowlarr $latest работает: http://127.0.0.1:$(sed -n 's/.*<Port>\\([0-9]*\\)<\\/Port>.*/\\1/p' /var/lib/prowlarr/config.xml)"
 }
 install_jacred(){
  local installer=/opt/jacred/kit-jacred-installer.sh port=${1:-9117}
@@ -141,8 +141,35 @@ install_jacred(){
  say "Пустая FileDB не содержит торренты. Базу-снимок можно загрузить отдельным пунктом меню."
 }
 jacred_db(){
- [[ -x /opt/jacred/kit-jacred-installer.sh ]] || die "Сначала установите JacRed"
- bash /opt/jacred/kit-jacred-installer.sh --download-db
+ local tmp archive data_dir backup
+ [[ -x /opt/jacred/JacRed ]] || die "Сначала установите JacRed"
+ need curl; need unzip; need zstd; need tar; need file; need chown
+ systemctl stop jacred
+ tmp=$(mktemp -d)
+ trap 'rm -rf "$tmp"; systemctl start jacred >/dev/null 2>&1 || true' RETURN
+ archive="$tmp/db.archive"
+ data_dir="$tmp/Data"
+ mkdir -p "$data_dir"
+ say "Загружаю официальный снимок базы JacRed"
+ curl -fL --retry 3 "https://sync.jacred.stream/latest.tar.zst.zip" -o "$archive" || die "Не удалось загрузить базу JacRed"
+ if file -b "$archive" | grep -qi 'zip archive'; then
+  unzip -oq "$archive" -d "$tmp"
+  local tar_zst
+  tar_zst=$(find "$tmp" -maxdepth 1 -name '*.tar.zst' -print -quit)
+  [[ -n "$tar_zst" && -f "$tar_zst" ]] || die "В архиве не найден .tar.zst"
+ else
+  tar_zst="$archive"
+ fi
+ zstd -d "$tar_zst" -c | tar -xf - -C "$data_dir" || die "Не удалось распаковать снимок базы"
+ [[ -n "$(find "$data_dir" -mindepth 1 -print -quit)" ]] || die "Снимок базы пуст"
+ backup="/opt/jacred/Data.backup.$(date +%Y%m%d-%H%M%S)"
+ if [[ -d /opt/jacred/Data ]]; then cp -a /opt/jacred/Data "$backup"; fi
+ mkdir -p /opt/jacred/Data
+ cp -a "$data_dir"/. /opt/jacred/Data/
+ chown -R jacred:jacred /opt/jacred/Data
+ systemctl start jacred
+ systemctl is-active --quiet jacred || die "JacRed не запустился после обновления базы; резервная копия: $backup"
+ say "База загружена. Предыдущая Data сохранена: $backup"
 }
 check_services(){
  local s
@@ -151,7 +178,7 @@ check_services(){
    if systemctl is-active --quiet "$s"; then echo "$s: работает"; else echo "$s: остановлен/ошибка"; fi
   else echo "$s: не установлен"; fi
  done
- [[ ! -f "$STATE/torrserver.port" ]] || echo "TorrServer: http://127.0.0.1/$(cat "$STATE/torrserver.port")"
+ [[ ! -f "$STATE/torrserver.port" ]] || echo "TorrServer: http://127.0.0.1:$(cat "$STATE/torrserver.port")"
  [[ ! -f /var/lib/prowlarr/config.xml ]] || echo "Prowlarr: порт $(sed -n 's/.*<Port>\\([0-9]*\\)<\\/Port>.*/\\1/p' /var/lib/prowlarr/config.xml)"
  [[ ! -d /opt/jacred ]] || echo "JacRed: http://127.0.0.1:9117"
 }
