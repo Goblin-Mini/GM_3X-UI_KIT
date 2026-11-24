@@ -28,7 +28,11 @@ jobs:
           grep -q "^KIT_VERSION=\"$v\"" scripts/3x-ui.sh
           grep -q "^KIT_VERSION=\"$v\"" scripts/hysteria2.sh
           grep -q "^KIT_VERSION=\"$v\"" scripts/kit.sh
+      # Подпись проверяется для main и тегов релизов. В feature/PR-ветках
+      # SHA256SUMS относится к последнему опубликованному релизу и не обязана
+      # совпадать с изменяемыми исходниками до выпуска новой подписанной версии.
       - name: Подпись релиза совпадает с файлами
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         run: |
           [ -f SHA256SUMS ] || { echo "SHA256SUMS нет – релиз ещё не подписан"; exit 0; }
           grep -qx "# 3X-UI KIT $(cat VERSION)" SHA256SUMS
