@@ -2123,7 +2123,7 @@ safe_env() { # файл имя...
     [[ " $* " == *" $n "* ]] || die "Это не резервная копия 3X-UI KIT или она повреждена (лишнее имя $n в ${f##*/}). Ничего не менял."
     case $n in
       BACKUP_KIT_VERSION) re='^[0-9]{1,3}(\.[0-9]{1,3}){1,3}$' ;;
-      BACKUP_HOST | HOST) re='^[A-Za-z0-9.:-]{1,253}$' ;;
+      COUNTRY_PREFIX) re="^[A-Z]{2}$" ;;\n      BACKUP_HOST | HOST) re='^[A-Za-z0-9.:-]{1,253}$' ;;
       LINK_HOST) re='^[A-Za-z0-9.:-]{0,253}$' ;;
       BACKUP_SSL) re='^(ip|custom|none)$' ;;
       BACKUP_DATE) re='^[0-9]{4}-[0-9]{2}-[0-9]{2}$' ;;
@@ -2335,7 +2335,7 @@ PY
   [[ $(env_get "$tmp/etc/x-ui/install-result.env" XUI_PANEL_PORT) =~ ^[0-9]{1,5}$ ]] \
     || die "Это не резервная копия 3X-UI KIT или она повреждена (порт панели). Ничего не менял."
   if [[ -f $tmp/etc/kit/kit.env ]]; then
-    safe_env "$tmp/etc/kit/kit.env" HOST LINK_HOST PANEL_ON SUB_BASE SUB_PATH SUB_INTERNAL SINGLE MTPROTO_INNER
+    safe_env "$tmp/etc/kit/kit.env" HOST LINK_HOST PANEL_ON SUB_BASE SUB_PATH SUB_INTERNAL SINGLE MTPROTO_INNER COUNTRY_PREFIX
   fi
   python3 -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); assert c.execute('PRAGMA integrity_check').fetchone()[0]=='ok'; c.execute('SELECT count(*) FROM inbounds')" \
     "$tmp/etc/x-ui/x-ui.db" 2>/dev/null || die "База панели в копии повреждена. Ничего не менял."
