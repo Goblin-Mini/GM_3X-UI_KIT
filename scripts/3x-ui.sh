@@ -1599,7 +1599,6 @@ detect_country_prefix() {
 }
 
 install_kit_cli() {
-  detect_country_prefix
   install -d -m 700 /etc/kit
   {
     printf 'HOST=%q\n' "$HOST"
@@ -1973,6 +1972,7 @@ NGX
 
 setup_subscription() {
   local all upd
+  detect_country_prefix
   all=$(api POST setting/all '{}')
   SUB_PATH=$(jq -r '.subPath // "/sub/"' <<<"$all")
   if [[ $SUB_PATH == /sub/ || -z $SUB_PATH ]]; then SUB_PATH="/$(rand_str 12 | tr 'A-Z' 'a-z')/"; fi
@@ -2064,12 +2064,12 @@ install_kit_sub() {
   install_kit_sub_file
   if [[ $SINGLE == yes ]]; then
     # За nginx: слушаем только localhost, TLS снимает nginx на 443.
-    jq -n --arg path "$SUB_PATH" --argjson port "${INNER[sub]}" --arg up "http://127.0.0.1:$SUB_INTERNAL" --arg host "$HOST" --arg lh "${LINK_HOST:-$HOST}" \
-      '{listen: "127.0.0.1", port: $port, path: $path, upstream: $up, host: $host} + (if $lh != $host then {link_host: $lh} else {} end)' >/etc/kit-sub/config.json
+    jq -n --arg path "$SUB_PATH" --argjson port "${INNER[sub]}" --arg up "http://127.0.0.1:$SUB_INTERNAL" --arg host "$HOST" --arg lh "${LINK_HOST:-$HOST}" --arg cp "${COUNTRY_PREFIX:-}" \
+      '{listen: "127.0.0.1", port: $port, path: $path, upstream: $up, host: $host, country_prefix: $cp} + (if $lh != $host then {link_host: $lh} else {} end)' >/etc/kit-sub/config.json
   else
     jq -n --arg path "$SUB_PATH" --argjson port "$SUB_PORT" --arg up "http://127.0.0.1:$SUB_INTERNAL" \
-      --arg cert "$CERT" --arg key "$KEY" --arg host "$HOST" --arg lh "${LINK_HOST:-$HOST}" \
-      '{listen: "0.0.0.0", port: $port, path: $path, upstream: $up, cert: $cert, key: $key, host: $host} + (if $lh != $host then {link_host: $lh} else {} end)' >/etc/kit-sub/config.json
+      --arg cert "$CERT" --arg key "$KEY" --arg host "$HOST" --arg lh "${LINK_HOST:-$HOST}" --arg cp "${COUNTRY_PREFIX:-}" \
+      '{listen: "0.0.0.0", port: $port, path: $path, upstream: $up, cert: $cert, key: $key, host: $host, country_prefix: $cp} + (if $lh != $host then {link_host: $lh} else {} end)' >/etc/kit-sub/config.json
   fi
   chmod 600 /etc/kit-sub/config.json
   if [[ $SINGLE == yes ]]; then
