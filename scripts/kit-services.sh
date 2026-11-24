@@ -356,8 +356,9 @@ menu(){
     echo "1. TorrServer MatriX"
     echo "2. Prowlarr"
     echo "3. JacRed-FDB"
+    echo "4. FlareSolverr"
     read -r -p "Номер сервиса: " n
-    case "$n" in 1) s=torrserver;; 2) s=prowlarr;; 3) s=jacred;;  *) echo "Нет такого номера"; continue;; esac
+    case "$n" in 1) s=torrserver;; 2) s=prowlarr;; 3) s=jacred;; 4) s=flaresolverr;;  *) echo "Нет такого номера"; continue;; esac
     remove_service "$s";;
    0|"") return;;
    *) echo "Нет такого пункта";;
