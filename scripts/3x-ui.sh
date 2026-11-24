@@ -382,7 +382,8 @@ choose_masking() {
         [[ $PANEL_DOMAIN != "$DOMAIN" && $PANEL_DOMAIN =~ $re_host ]] || { warn "Укажите отдельный корректный поддомен, например panel.$DOMAIN"; continue; }
         domain_points_here "$PANEL_DOMAIN" && break
       done
-      PANEL_ON=domain
+      # Поддомен панели обслуживается основным web-upstream nginx; не добавляем пути панели в landing-блок REALITY.
+      PANEL_ON=ip
       return 0
     fi
     prev=$d
@@ -949,7 +950,7 @@ main() {
   # --- итог ---
   local panel_url links
   local ph=$HOST
-  if [[ $PANEL_ON == domain ]]; then ph=${PANEL_DOMAIN:-$DOMAIN}; SUB_URL=${SUB_URL/\/\/$HOST\//\/\/$ph\/}; fi
+  if [[ -n $PANEL_DOMAIN || $PANEL_ON == domain ]]; then ph=${PANEL_DOMAIN:-$DOMAIN}; SUB_URL=${SUB_URL/\/\/$HOST\//\/\/$ph\/}; fi
   if [[ $SINGLE == yes ]]; then
     panel_url="https://$ph/${XUI_WEB_BASE_PATH#/}"
     panel_url="${panel_url%/}/"
