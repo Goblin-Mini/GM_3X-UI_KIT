@@ -2123,7 +2123,8 @@ safe_env() { # файл имя...
     [[ " $* " == *" $n "* ]] || die "Это не резервная копия 3X-UI KIT или она повреждена (лишнее имя $n в ${f##*/}). Ничего не менял."
     case $n in
       BACKUP_KIT_VERSION) re='^[0-9]{1,3}(\.[0-9]{1,3}){1,3}$' ;;
-      COUNTRY_PREFIX) re="^[A-Z]{2}$" ;;\n      BACKUP_HOST | HOST) re='^[A-Za-z0-9.:-]{1,253}$' ;;
+      COUNTRY_PREFIX) re="^[A-Z]{2}$" ;;
+      BACKUP_HOST | HOST) re='^[A-Za-z0-9.:-]{1,253}$' ;;
       LINK_HOST) re='^[A-Za-z0-9.:-]{0,253}$' ;;
       BACKUP_SSL) re='^(ip|custom|none)$' ;;
       BACKUP_DATE) re='^[0-9]{4}-[0-9]{2}-[0-9]{2}$' ;;
