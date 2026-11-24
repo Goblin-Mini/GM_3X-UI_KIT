@@ -300,7 +300,7 @@ port = ""
 if yaml.is_file():
     try:
         text = yaml.read_text()
-        match = re.search(r"(?m)^\\s*listenport\\s*:\\s*['\"]?(\\d+)", text)
+        match = re.search(r"(?m)^\s*listenport\s*:\s*['\"]?(\d+)", text)
         if match:
             port = match.group(1)
     except OSError:
