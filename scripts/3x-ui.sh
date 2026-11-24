@@ -1702,6 +1702,11 @@ stub_site() {
 
 
 setup_nginx() {
+  local web_cert=$CERT web_key=$KEY
+  if [[ -n $PANEL_DOMAIN ]]; then
+    web_cert=$DOMAIN_CERT_DIR/fullchain.pem
+    web_key=$DOMAIN_CERT_DIR/privkey.pem
+  fi
   say "Настраиваю nginx: всё TCP через порт 443"
   spin_start "Ставлю nginx"
   apt-get install -y -qq nginx libnginx-mod-stream >/dev/null
@@ -1810,8 +1815,8 @@ setup_nginx() {
 server {
     listen 127.0.0.1:${INNER[web]} ssl${h2:+ $h2} proxy_protocol;
     server_name _;${h2on}
-    ssl_certificate $CERT;
-    ssl_certificate_key $KEY;
+    ssl_certificate $web_cert;
+    ssl_certificate_key $web_key;
     ssl_protocols TLSv1.2 TLSv1.3;
     set_real_ip_from 127.0.0.1;
     real_ip_header proxy_protocol;
@@ -2439,8 +2444,9 @@ usage() {
   --protocols all     all (по умолчанию – основной набор), minimal (только REALITY)
 \1  --port 443          порт REALITY (TCP) и Hysteria2 (UDP), по умолчанию 443
   --sni сайт          чужой сайт для маскировки (по умолчанию подбирается сам)
-  --domain домен      свой домен для маскировки (надёжнее): его A-запись должна вести на этот
-                      сервер, порт 80 свободен; сертификат Let's Encrypt установщик получит сам.
+  --domain домен      домен страницы-заглушки/REALITY; его A-запись должна вести на сервер.
+                      В интерактивном режиме дополнительно запросит поддомен панели и включит
+                      оба имени в сертификат Let's Encrypt.
                       Без флагов установщик спросит, какую маскировку выбрать
   --panel-ssl ip|none сертификат панели: ip – Let's Encrypt на IP (нужен порт 80),
                       none – панель только через SSH-туннель (по умолчанию выбирается сам)
