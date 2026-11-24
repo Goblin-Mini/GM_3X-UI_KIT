@@ -1048,7 +1048,7 @@ install_xui() { # порт путь логин пароль
   actual=$(python3 - "$tmp" <<'PY'
 import hashlib, sys
 data = open(sys.argv[1], "rb").read()
-print(hashlib.sha1(b"blob " + str(len(data)).encode() + b"\\0" + data).hexdigest())
+print(hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest())
 PY
   ) || die "Не удалось проверить контрольную сумму установщика 3X-UI."
   [[ $actual == "$XUI_INSTALL_BLOB_SHA" ]] \
