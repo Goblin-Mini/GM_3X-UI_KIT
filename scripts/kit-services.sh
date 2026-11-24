@@ -301,8 +301,29 @@ menu(){
    3) read -r -p "Порт JacRed [9117]: " p; install_jacred "${p:-9117}";;
    4) jacred_db;;
    5) check_services;;
-   6) read -r -p "Сервис (torrserver/prowlarr/jacred): " s; read -r -p "Действие: " a; service_control "$s" "$a";;
-   7) read -r -p "Сервис (torrserver/prowlarr/jacred): " s; remove_service "$s";;
+   6)
+    echo "Сервис:"
+    echo "1. TorrServer MatriX"
+    echo "2. Prowlarr"
+    echo "3. JacRed-FDB"
+    read -r -p "Номер сервиса: " n
+    case "$n" in 1) s=torrserver;; 2) s=prowlarr;; 3) s=jacred;; *) echo "Нет такого номера"; continue;; esac
+    echo "Действие:"
+    echo "1. Запустить"
+    echo "2. Остановить"
+    echo "3. Перезапустить"
+    echo "4. Статус"
+    read -r -p "Номер действия: " n
+    case "$n" in 1) a=start;; 2) a=stop;; 3) a=restart;; 4) a=status;; *) echo "Нет такого номера"; continue;; esac
+    service_control "$s" "$a";;
+   7)
+    echo "Сервис для полного удаления:"
+    echo "1. TorrServer MatriX"
+    echo "2. Prowlarr"
+    echo "3. JacRed-FDB"
+    read -r -p "Номер сервиса: " n
+    case "$n" in 1) s=torrserver;; 2) s=prowlarr;; 3) s=jacred;; *) echo "Нет такого номера"; continue;; esac
+    remove_service "$s";;
    0|"") return;;
    *) echo "Нет такого пункта";;
   esac
