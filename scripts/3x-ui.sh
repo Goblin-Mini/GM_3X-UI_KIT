@@ -1578,7 +1578,28 @@ install_kit_services() {
   bash -n /usr/local/bin/kit-services || die "Установщик торрент-сервисов повреждён"
 }
 
+detect_country_prefix() {
+  # При обновлении сохраняем ранее определённый код; геолокацию повторно не запрашиваем.
+  if [[ -f /etc/kit/kit.env ]]; then
+    local saved
+    saved=$(sed -n 's/^COUNTRY_PREFIX=//p' /etc/kit/kit.env | tail -n1 | tr -d "'\"" )
+    if [[ $saved =~ ^[A-Z]{2}$ ]]; then COUNTRY_PREFIX=$saved; return 0; fi
+  fi
+  COUNTRY_PREFIX=""
+  local code=""
+  if command -v curl >/dev/null 2>&1; then
+    code=$(curl -4fsS --connect-timeout 3 --max-time 5 https://ipapi.co/country/ 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]' || true)
+    [[ $code =~ ^[A-Z]{2}$ ]] && COUNTRY_PREFIX=$code
+  fi
+  if [[ -n $COUNTRY_PREFIX ]]; then
+    say "Страновой префикс подключений: [$COUNTRY_PREFIX]"
+  else
+    warn "Не удалось определить страну VPS; подключения останутся без префикса."
+  fi
+}
+
 install_kit_cli() {
+  detect_country_prefix
   install -d -m 700 /etc/kit
   {
     printf 'HOST=%q\n' "$HOST"
@@ -1589,6 +1610,7 @@ install_kit_cli() {
     printf 'SUB_INTERNAL=%q\n' "${SUB_INTERNAL:-$SUB_PORT}"
     printf 'SINGLE=%q\n' "$SINGLE"
     printf 'MTPROTO_INNER=%q\n' "${INNER[mtproto]}"
+    printf 'COUNTRY_PREFIX=%q\n' "${COUNTRY_PREFIX:-}"
   } >/etc/kit/kit.env
   chmod 600 /etc/kit/kit.env
   install_kit_file
