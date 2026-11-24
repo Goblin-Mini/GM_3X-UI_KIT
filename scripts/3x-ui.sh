@@ -1541,6 +1541,19 @@ awg_attach() { # имя subId [лимит-байт] [срок-мс] [устро�
 }
 
 KIT_CLI_URL="$KIT_RAW/scripts/kit.sh"
+KIT_SERVICES_URL="$KIT_RAW/scripts/kit-services.sh"
+
+install_kit_services() {
+  local d src=""
+  d=$(dirname "${BASH_SOURCE[0]}")
+  [[ -f $d/kit-services.sh && ${BASH_SOURCE[0]} != /dev/fd/* ]] && src=$d/kit-services.sh
+  if [[ -n $src ]]; then
+    install -m 755 "$src" /usr/local/bin/kit-services
+  else
+    curl -fsSL --retry 3 -o /usr/local/bin/kit-services "$KIT_SERVICES_URL" && chmod 755 /usr/local/bin/kit-services
+  fi
+  bash -n /usr/local/bin/kit-services || die "Установщик торрент-сервисов повреждён"
+}
 
 install_kit_cli() {
   install -d -m 700 /etc/kit
@@ -1556,6 +1569,7 @@ install_kit_cli() {
   } >/etc/kit/kit.env
   chmod 600 /etc/kit/kit.env
   install_kit_file
+  install_kit_services
 }
 
 install_kit_file() {
