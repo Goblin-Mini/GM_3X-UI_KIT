@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Историческая Рязань: летопись города, Рязанский кремль, архитектура, достопримечательности и карта.">
+<title>Рязань сквозь века — исторический путеводитель</title>
+<style>
+:root{
+  --wine:#641f2d;--wine-dark:#3b111c;--wine-soft:#8b3948;
+  --gold:#c49a4a;--gold-light:#e7ca8a;--cream:#f6f0e4;
+  --paper:#fffaf1;--ink:#30251f;--muted:#75685e;--line:#e6d9c5;
+  --serif:Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--cream);color:var(--ink);font-family:Arial,Helvetica,sans-serif;line-height:1.65}
+a{color:inherit}
+img{display:block;max-width:100%}
+.container{width:min(1160px,calc(100% - 40px));margin:auto}
+.topline{height:5px;background:linear-gradient(90deg,var(--wine),var(--gold),var(--wine))}
+header{position:sticky;top:0;z-index:20;background:rgba(255,250,241,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--wine);font-family:var(--serif);font-weight:bold;font-size:21px;white-space:nowrap}
+.brand-mark{width:39px;height:39px;border:1px solid var(--gold);border-radius:50%;display:grid;place-items:center;color:var(--gold);font-size:21px}
+nav{display:flex;gap:25px;align-items:center}
+nav a{text-decoration:none;font-size:13px;font-weight:700;letter-spacing:.04em;color:#51433a}
+nav a:hover{color:var(--wine)}
+.menu-toggle{display:none;border:1px solid var(--line);background:transparent;color:var(--wine);padding:8px 12px;border-radius:4px;font-size:20px}
+.hero{min-height:640px;display:flex;align-items:end;position:relative;color:white;background:
+ linear-gradient(90deg,rgba(35,12,19,.82),rgba(35,12,19,.34) 60%,rgba(35,12,19,.12)),
+ linear-gradient(0deg,rgba(28,10,15,.72),transparent 60%),
+ url("https://7d9e88a8-f178-4098-bea5-48d960920605.selcdn.net/7e3b6b55-3f96-4dc9-b4a6-659126962b84/") center 45%/cover}
+.hero-inner{padding:100px 0 82px;max-width:760px}
+.eyebrow{display:flex;align-items:center;gap:12px;color:var(--gold-light);font-size:12px;text-transform:uppercase;letter-spacing:.22em;font-weight:bold}
+.eyebrow:before{content:"";width:42px;height:1px;background:var(--gold)}
+h1,h2,h3{font-family:var(--serif);font-weight:500;line-height:1.12}
+h1{font-size:clamp(48px,8vw,88px);margin:22px 0 20px;letter-spacing:-.035em}
+.hero p{font-size:18px;max-width:590px;color:#f4e9dd;margin:0 0 32px}
+.hero-actions{display:flex;gap:13px;flex-wrap:wrap}
+.btn{display:inline-block;padding:13px 21px;text-decoration:none;font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:bold;border:1px solid var(--gold);transition:.2s}
+.btn.primary{background:var(--gold);color:#2e1c18}
+.btn.ghost{color:white}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.hero-note{position:absolute;right:max(20px,calc((100vw - 1160px)/2));bottom:34px;color:#f4e9dd;font-family:var(--serif);font-style:italic;font-size:14px}
+.intro{padding:76px 0 72px;display:grid;grid-template-columns:1fr 1.3fr;gap:70px;align-items:start}
+.kicker{color:var(--wine-soft);font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:bold}
+.intro h2,.section-heading h2{font-size:clamp(34px,4vw,51px);color:var(--wine);margin:14px 0}
+.intro p{margin:0 0 16px;color:#5e5148}
+.dropcap:first-letter{float:left;font-family:var(--serif);font-size:62px;line-height:.8;padding:8px 9px 0 0;color:var(--wine)}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:28px}
+.fact{padding:20px 12px 20px 0}
+.fact strong{display:block;font-family:var(--serif);font-size:31px;color:var(--wine);font-weight:500}
+.fact span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.dark-band{background:var(--wine-dark);color:var(--cream);padding:78px 0}
+.section-heading{max-width:720px;margin-bottom:40px}
+.section-heading h2{color:inherit}
+.section-heading p{color:#d7c8bc;margin:0}
+.timeline{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:20px}
+.timeline:before{content:"";position:absolute;top:13px;left:0;right:0;height:1px;background:#8d6670}
+.era{position:relative;padding-top:38px}
+.era:before{content:"";position:absolute;top:7px;left:0;width:13px;height:13px;border-radius:50%;background:var(--gold);border:3px solid var(--wine-dark);box-shadow:0 0 0 1px var(--gold)}
+.era time{font-family:var(--serif);font-size:27px;color:var(--gold-light)}
+.era h3{font-size:20px;margin:10px 0;color:#fff8ed}
+.era p{font-size:13px;color:#d2c2b8;margin:0}
+.section{padding:82px 0}
+.section-heading.light{color:var(--wine)}
+.section-heading.light p{color:var(--muted)}
+.sights{display:grid;grid-template-columns:repeat(12,1fr);gap:22px}
+.sight{background:var(--paper);border:1px solid var(--line);box-shadow:0 8px 28px rgba(60,30,20,.05);overflow:hidden}
+.sight:nth-child(1){grid-column:span 7}
+.sight:nth-child(2){grid-column:span 5}
+.sight:nth-child(3){grid-column:span 5}
+.sight:nth-child(4){grid-column:span 7}
+.sight img{width:100%;height:290px;object-fit:cover;transition:transform .5s}
+.sight:hover img{transform:scale(1.035)}
+.sight-copy{padding:24px 26px 27px}
+.sight .number{color:var(--gold);font-family:var(--serif);font-size:17px}
+.sight h3{font-size:27px;color:var(--wine);margin:7px 0 10px}
+.sight p{font-size:14px;color:#66584e;margin:0}
+.caption{font-size:11px;color:#9b8b7d;margin-top:12px}
+.caption a{color:inherit}
+.photo-strip{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:54px;align-items:center}
+.photo-strip img{height:350px;width:100%;object-fit:cover}
+.photo-strip blockquote{margin:0;padding:25px 8px 25px 35px;border-left:2px solid var(--gold);font-family:var(--serif);font-size:clamp(24px,3vw,36px);line-height:1.35;color:var(--wine)}
+.photo-strip cite{display:block;font-family:Arial,sans-serif;font-size:12px;color:var(--muted);font-style:normal;margin-top:18px;letter-spacing:.08em;text-transform:uppercase}
+.map-section{background:#eee4d4;padding:78px 0}
+.map-layout{display:grid;grid-template-columns:.8fr 1.2fr;gap:45px;align-items:center}
+.map-layout h2{font-size:clamp(34px,4vw,49px);color:var(--wine);margin:14px 0}
+.map-layout p{color:#65574d}
+.map-frame{height:410px;border:8px solid var(--paper);box-shadow:0 12px 35px rgba(48,25,17,.12)}
+.map-frame iframe{width:100%;height:100%;border:0}
+.address{margin-top:22px;padding-top:18px;border-top:1px solid #d6c6b2;font-size:13px;color:#6d5d52}
+.sources{padding:60px 0;background:var(--paper)}
+.sources h2{font-size:30px;color:var(--wine);margin:0 0 20px}
+.source-list{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.source-list a{font-size:13px;color:var(--wine);text-decoration:none;border-top:1px solid var(--line);padding-top:12px}
+.source-list a:hover{text-decoration:underline}
+footer{background:#2b1018;color:#d9c9bc;padding:28px 0;font-size:12px}
+.footer-inner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+footer strong{font-family:var(--serif);font-size:19px;color:var(--gold-light);font-weight:normal}
+@media(max-width:800px){
+ nav{display:none;position:absolute;top:76px;left:0;right:0;background:var(--paper);padding:20px;flex-direction:column;align-items:flex-start;border-bottom:1px solid var(--line)}
+ nav.open{display:flex}.menu-toggle{display:block}
+ .hero{min-height:590px;background-position:58% center}
+ .hero-inner{padding:80px 0 95px}
+ .intro{grid-template-columns:1fr;gap:18px;padding:58px 0}
+ .timeline{grid-template-columns:1fr 1fr;gap:28px 20px}
+ .timeline:before{display:none}
+ .sight:nth-child(n){grid-column:span 6}
+ .sight img{height:230px}
+ .map-layout{grid-template-columns:1fr;gap:25px}
+ .map-frame{height:350px}
+ .photo-strip{grid-template-columns:1fr}
+ .photo-strip img{height:290px}
+}
+@media(max-width:540px){
+ .container{width:min(100% - 28px,1160px)}
+ .brand{font-size:18px}
+ .hero{min-height:570px}
+ .hero p{font-size:16px}
+ .hero-note{display:none}
+ .facts{grid-template-columns:1fr 1fr}
+ .timeline{grid-template-columns:1fr}
+ .sight:nth-child(n){grid-column:span 12}
+ .sight img{height:245px}
+ .section,.dark-band,.map-section{padding:60px 0}
+ .source-list{grid-template-columns:1fr}
+ .map-frame{height:300px}
+}
+</style>
+</head>
+<body>
+<div class="topline"></div>
+<header>
+ <div class="container nav">
+  <a class="brand" href="#top"><span class="brand-mark">Р</span><span>Рязань <small style="display:block;font:10px Arial;letter-spacing:.18em;color:#8b7668;text-transform:uppercase">сквозь века</small></span></a>
+  <button class="menu-toggle" aria-label="Открыть меню" aria-expanded="false" onclick="const n=document.querySelector('nav');n.classList.toggle('open');this.setAttribute('aria-expanded',n.classList.contains('open'))">☰</button>
+  <nav>
+   <a href="#history">ИСТОРИЯ</a><a href="#sights">ПАМЯТНИКИ</a><a href="#map">КАРТА</a><a href="#sources">ИСТОЧНИКИ</a>
+  </nav>
+ </div>
+</header>
+<main id="top">
+<section class="hero">
+ <div class="container hero-inner">
+  <div class="eyebrow">Город на берегах Трубежа</div>
+  <h1>Рязань<br>сквозь века</h1>
+  <p>Путешествие в историю древнего Переяславля-Рязанского — города кремлёвских холмов, белокаменных храмов и тихих речных набережных.</p>
+  <div class="hero-actions"><a class="btn primary" href="#history">Открыть летопись</a><a class="btn ghost" href="#sights">Что посмотреть</a></div>
+ </div>
+ <div class="hero-note">Рязанский кремль · историческое сердце города</div>
+</section>
+
+<section class="container intro">
+ <div>
+  <div class="kicker">Знакомство с городом</div>
+  <h2>Там, где реки хранят память</h2>
+ </div>
+ <div>
+  <p class="dropcap">Рязань — один из старейших городов центральной России. Её историческое ядро выросло на высоком мысу у слияния Трубежа и Лыбеди. Здесь проходили торговые пути, формировалась княжеская столица, а позднее возник ансамбль, который сегодня называют Рязанским кремлём.</p>
+  <p>Современная Рязань унаследовала имя древней столицы княжества — Старой Рязани. Сам город долгое время назывался Переяславлем-Рязанским и получил имя Рязань в 1778 году.</p>
+  <div class="facts">
+   <div class="fact"><strong>1095</strong><span>Летописная дата основания Переяславля</span></div>
+   <div class="fact"><strong>1778</strong><span>Город получил имя Рязань</span></div>
+   <div class="fact"><strong>1693–99</strong><span>Строительство Успенского собора</span></div>
+  </div>
+ </div>
+</section>
+
+<section class="dark-band" id="history">
+ <div class="container">
+  <div class="section-heading">
+   <div class="kicker" style="color:var(--gold-light)">Краткая летопись</div>
+   <h2>Пять глав истории</h2>
+   <p>От укреплённого поселения на речном мысу до губернского центра и современного города.</p>
+  </div>
+  <div class="timeline">
+   <article class="era"><time>1095</time><h3>Переяславль</h3><p>В поздней летописной записи указана закладка города Переяславля Рязанского около церкви Николы Старого.</p></article>
+   <article class="era"><time>1237</time><h3>Память о Старой Рязани</h3><p>Старая Рязань была разорена во время нашествия Батыя. Со временем ведущая роль в княжестве перешла к Переяславлю.</p></article>
+   <article class="era"><time>XIV–XV вв.</time><h3>Столица княжества</h3><p>Переяславль укрепляет положение главного города. Кремлёвский холм становится центром политической и духовной жизни.</p></article>
+   <article class="era"><time>1778</time><h3>Имя Рязань</h3><p>При учреждении Рязанской губернии Переяславль-Рязанский получает название Рязань.</p></article>
+   <article class="era"><time>1863</time><h3>Новая эпоха</h3><p>Начинается строительство железной дороги Москва—Рязань, усилившее торговые и транспортные связи города.</p></article>
+  </div>
+ </div>
+</section>
+
+<section class="section" id="sights">
+ <div class="container">
+  <div class="section-heading light">
+   <div class="kicker">Архитектура и места</div>
+   <h2>Достопримечательности</h2>
+   <p>Начните прогулку с кремлёвского холма — здесь особенно хорошо чувствуется многослойная история Рязани.</p>
+  </div>
+  <div class="sights">
+   <article class="sight">
+    <img loading="lazy" src="https://media-cdn.tripadvisor.com/media/photo-s/02/3a/94/85/filename-ryazan-jpg-thumbnail0.jpg" alt="Панорама Рязанского кремля с Успенским собором и колокольней">
+    <div class="sight-copy"><span class="number">01 / Исторический центр</span><h3>Рязанский кремль</h3><p>Древнейшая часть города на высоком мысу у Трубежа и Лыбеди. На территории музейного ансамбля соседствуют соборы, палаты, колокольня и земляной вал.</p><div class="caption">Фото: <a href="https://www.tripadvisor.ru/Attraction_Review-g298485-d6491220-Reviews-Ryazan_Kremlin-Ryazan_Ryazan_Oblast_Central_Russia.html" target="_blank" rel="noopener">Tripadvisor / автор снимка</a></div></div>
+   </article>
+   <article class="sight">
+    <img loading="lazy" src="https://petersmonuments.ru/upload/resize_cache/iblock/78e/898_560_1/mjshquocxz6h3cve5jzhb3aw2nisl10b.jpg" alt="Успенский собор Рязанского кремля">
+    <div class="sight-copy"><span class="number">02 / XVII век</span><h3>Успенский собор</h3><p>Монументальный храм, построенный в 1693–1699 годах зодчим Яковом Бухвостовым. Один из главных архитектурных символов города.</p><div class="caption">Фото: <a href="https://petersmonuments.ru/russia/memorials/uspenskiy-sobor-ryazanskogo-kremlya/" target="_blank" rel="noopener">Петербургские памятники</a></div></div>
+   </article>
+   <article class="sight">
+    <img loading="lazy" src="https://7d9e88a8-f178-4098-bea5-48d960920605.selcdn.net/7e3b6b55-3f96-4dc9-b4a6-659126962b84/" alt="Соборная колокольня Рязанского кремля на закате">
+    <div class="sight-copy"><span class="number">03 / Вертикаль города</span><h3>Соборная колокольня</h3><p>Изящная многоярусная колокольня со шпилем формирует узнаваемый силуэт кремля и видна из разных точек исторического центра.</p><div class="caption">Фото: <a href="https://www.sputnik8.com/ru/ryazan/pages/chto-posmotret-v-ryazani" target="_blank" rel="noopener">Sputnik8</a></div></div>
+   </article>
+   <article class="sight">
+    <img loading="lazy" src="https://fototerra.ru/photo/Russia/Rjazan/image281627.jpg" alt="Рязанский кремль над рекой Трубеж">
+    <div class="sight-copy"><span class="number">04 / Речной пейзаж</span><h3>Набережная Трубежа</h3><p>Один из самых выразительных ракурсов кремля открывается с воды: зелёный склон, отражения в реке, соборные купола и золотой шпиль.</p><div class="caption">Фото: <a href="https://fototerra.ru/photo-page/Russia/Rjazan/281627" target="_blank" rel="noopener">ФотоТерра</a></div></div>
+   </article>
+  </div>
+  <div class="photo-strip">
+   <img loading="lazy" src="https://pravoslavie.ru/sas/image/104433/443359.b.jpg?mtime=1729055860" alt="Церковь Святого Духа в Рязанском кремле">
+   <blockquote>«История города читается не только в летописях — она видна в силуэтах храмов, изгибах рек и старых улицах».<cite>Рязань · прогулка по историческому центру</cite></blockquote>
+  </div>
+ </div>
+</section>
+
+<section class="map-section" id="map">
+ <div class="container map-layout">
+  <div>
+   <div class="kicker">Найдите своё направление</div>
+   <h2>Рязань на карте</h2>
+   <p>Карта показывает исторический центр города и район Рязанского кремля. Приблизьте её, чтобы рассмотреть улицы и набережные, или откройте карту в отдельном окне.</p>
+   <a class="btn primary" href="https://www.openstreetmap.org/?mlat=54.6362&mlon=39.7489#map=15/54.6362/39.7489" target="_blank" rel="noopener">Открыть большую карту</a>
+   <div class="address"><strong>Рязанский кремль</strong><br>г. Рязань, Кремль<br>Координаты: 54.6362° с. ш., 39.7489° в. д.</div>
+  </div>
+  <div class="map-frame">
+   <iframe title="Карта Рязанского кремля на OpenStreetMap" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=39.727%2C54.625%2C39.771%2C54.648&layer=mapnik&marker=54.6362%2C39.7489"></iframe>
+  </div>
+ </div>
+</section>
+
+<section class="sources" id="sources">
+ <div class="container">
+  <h2>Источники и дополнительное чтение</h2>
+  <div class="source-list">
+   <a href="https://www.admrzn.ryazan.gov.ru/ryazan/istoriya_goroda/" target="_blank" rel="noopener">Администрация Рязани — история города ↗</a>
+   <a href="https://ryazankreml.ru/visitors/" target="_blank" rel="noopener">Рязанский музей-заповедник — ансамбль Кремля ↗</a>
+   <a href="https://ryazan.gov.ru/ryazan/istoriya/staraya_ryazan/" target="_blank" rel="noopener">Правительство Рязанской области — Старая Рязань ↗</a>
+  </div>
+  <p style="font-size:12px;color:#8b7b6d;margin:22px 0 0">Фотографии загружаются с сайтов-источников и требуют подключения к интернету. Права на снимки принадлежат их авторам и правообладателям.</p>
+ </div>
+</section>
+</main>
+<footer><div class="container footer-inner"><strong>Рязань сквозь века</strong><span>Небольшой исторический путеводитель</span><span>© 2026</span></div></footer>
+</body>
+</html>
