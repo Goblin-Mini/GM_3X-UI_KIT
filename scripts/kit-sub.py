@@ -27,6 +27,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit, urlunsplit, quote, unquote
 
 import yaml
 
@@ -65,6 +66,9 @@ PASS_HEADERS = ("content-type", "content-disposition", "profile-title", "profile
 with open(CONFIG, encoding="utf-8") as f:
     CONF = json.load(f)
 PATH = "/" + CONF["path"].strip("/") + "/"
+COUNTRY_PREFIX = CONF.get("country_prefix", "")
+if not isinstance(COUNTRY_PREFIX, str) or not re.fullmatch(r"[A-Z]{2}", COUNTRY_PREFIX):
+    COUNTRY_PREFIX = ""
 # Раздельная маршрутизация (необязательно): /etc/kit-sub/rules.yaml – через VPN только перечисленное, остальное напрямую.
 # Файл читается при каждом запросе подписки, перезапуск не нужен. Нет файла или он битый – подписка как обычно (всё через VPN).
 RULES_FILE = os.environ.get("KIT_SUB_RULES") or "/etc/kit-sub/rules.yaml"
@@ -179,10 +183,90 @@ def strip_links(body, grace=None):
             text = base64.b64decode(text + "=" * (-len(text) % 4)).decode("utf-8", "replace")
         except ValueError:
             return body
-    lines = [grace_link(l, grace) for l in text.splitlines() if l.strip() and not l.startswith(("vpn://", "tg://"))]
+    lines = [prefix_link(grace_link(l, grace), COUNTRY_PREFIX) for l in text.splitlines() if l.strip() and not l.startswith(("vpn://", "tg://"))]
     out = "\n".join(lines)
     return base64.b64encode(out.encode()).decode().encode() if encoded else out.encode()
 
+
+
+def prefixed_name(name, country_prefix):
+    """Добавляет код страны к отображаемому имени, не меняя UUID/email и идентификаторы."""
+    if not country_prefix or not isinstance(name, str):
+        return name
+    marker = f"[{country_prefix}]"
+    return name if name.startswith(marker) else f"{marker} {name}"
+
+
+def prefix_link(line, country_prefix):
+    if not country_prefix or "://" not in line:
+        return line
+    try:
+        u = urlsplit(line)
+        if not u.fragment:
+            return line
+        label = unquote(u.fragment)
+        new_label = prefixed_name(label, country_prefix)
+        if new_label == label:
+            return line
+        return urlunsplit((u.scheme, u.netloc, u.path, u.query, quote(new_label, safe="")))
+    except ValueError:
+        return line
+
+
+def prefix_clash(body, country_prefix):
+    """Переименовывает прокси и синхронно обновляет ссылки на них в группах."""
+    if not country_prefix:
+        return body
+    cfg = yaml.safe_load(body)
+    if not isinstance(cfg, dict):
+        return body
+    renamed = {}
+    for proxy in cfg.get("proxies") or []:
+        if isinstance(proxy, dict) and isinstance(proxy.get("name"), str):
+            old = proxy["name"]
+            new = prefixed_name(old, country_prefix)
+            if new != old:
+                proxy["name"] = new
+                renamed[old] = new
+    if renamed:
+        for group in cfg.get("proxy-groups") or []:
+            if isinstance(group, dict) and isinstance(group.get("proxies"), list):
+                group["proxies"] = [renamed.get(x, x) for x in group["proxies"]]
+    return yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False).encode() if renamed else body
+
+
+def prefix_json(body, country_prefix):
+    """Переименовывает outbound tags и все ссылки на них в JSON-подписке."""
+    if not country_prefix or len(body) > JSON_FIX_MAX:
+        return body
+    try:
+        data = json.loads(body.decode("utf-8"))
+    except (ValueError, UnicodeError, RecursionError):
+        return body
+    renamed = {}
+    configs = data if isinstance(data, list) else [data]
+    for cfg in configs:
+        if not isinstance(cfg, dict):
+            continue
+        for outbound in cfg.get("outbounds") or []:
+            if isinstance(outbound, dict) and isinstance(outbound.get("tag"), str):
+                old = outbound["tag"]
+                new = prefixed_name(old, country_prefix)
+                if new != old:
+                    outbound["tag"] = new
+                    renamed[old] = new
+    if not renamed:
+        return body
+
+    def replace_refs(value):
+        if isinstance(value, dict):
+            return {k: (renamed.get(v, v) if isinstance(v, str) else replace_refs(v)) for k, v in value.items()}
+        if isinstance(value, list):
+            return [replace_refs(v) for v in value]
+        return value
+
+    data = replace_refs(data)
+    return json.dumps(data, ensure_ascii=False).encode()
 
 def strip_awg(clash_yaml):
     """Clash-конфиг без AmneziaWG – для приложений, которые его не умеют."""
@@ -468,16 +552,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         log(f"{ua[:80]!r} → {'clash+awg' if awg else 'clash' if clash else headers.get('content-type', '?').split(';')[0]}")
         try:
             if code == 200 and clash and not awg:
-                body = strip_awg(body)
+                body = prefix_clash(strip_awg(body), COUNTRY_PREFIX)
             elif code == 200 and awg and not sub_id.endswith(("-awg", "-tg")):
                 # Установки до kit 1.1 держали AmneziaWG в подписке «<id>-awg» – подмешиваем её.
                 acode, _, abody = upstream(sub_id + "-awg", ua, host, accept, prefix)
                 if acode == 200 and abody:
-                    body = merge_awg(body, abody)
+                    body = prefix_clash(merge_awg(body, abody), COUNTRY_PREFIX)
             elif code == 200 and ("json" in headers.get("content-type", "") or (
                     "text/plain" in headers.get("content-type", "") and body.lstrip()[:1] in (b"[", b"{"))):
                 # Панель 3.9 отдаёт JSON-подписку с Content-Type text/plain – определяем по телу.
-                body = fix_vless_encryption(body, load_grace())
+                body = prefix_json(fix_vless_encryption(body, load_grace()), COUNTRY_PREFIX)
             elif code == 200 and "text/plain" in headers.get("content-type", ""):
                 body = strip_links(body, load_grace())
             if code == 200 and clash and CONF.get("auto", True):
