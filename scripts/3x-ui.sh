@@ -1717,7 +1717,7 @@ choose_landing_page() {
   [[ $yes == no && -t 1 ]] && { : </dev/tty; } 2>/dev/null || return 0
   echo
   echo "${B}Какую страницу показывать на основном домене $DOMAIN? ${N}"
-  echo "  ${B}1${N}  System  – стандартная системная заглушка ${G}[по умолчанию]${N}"
+  echo "  ${B}1${N}  Random  – случайная автоматически генерируемая заглушка ${G}[по умолчанию]${N}"
   echo "  ${B}2${N}  Ryazan  – историческая HTML-страница о Рязани"
   echo "  ${B}3${N}  System Initializing – терминальная заглушка"
   local def=1
