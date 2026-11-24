@@ -72,7 +72,8 @@ SINGLE=no
 declare -A INNER=([reality]=10443 [xhttp]=10444 [mtproto]=10445 [web]=10446 [selfweb]=10447 [ws]=10451 [vmess]=10452 [trojan]=10453 [sub]=10460)
 SNI2=""; SNI3=""
 # Свой домен (self-steal): REALITY маскируется под сайт на этом же сервере, а не под чужой.
-DOMAIN=""
+DOMAIN=""                 # домен страницы-заглушки и REALITY fallback
+PANEL_DOMAIN=""          # отдельный поддомен веб-панели
 PANEL_ON=ip     # где открываются панель и подписка: ip или domain (domain – только со своим доменом)
 LINK_HOST=""   # адрес в ссылках: свой домен, если он выбран, иначе IP
 DOMAIN_CERT_DIR=/root/cert/domain
@@ -371,7 +372,19 @@ choose_masking() {
     [[ -n $d ]] || d=$prev
     [[ -n $d ]] || return 0
     if [[ ! $d =~ $re_host ]]; then warn "Это не похоже на домен (нужно только имя, без https://). Пример: vpn.example.com"; prev=""; continue; fi
-    if domain_points_here "$d"; then DOMAIN=$d; panel_on_choice; return 0; fi
+    if domain_points_here "$d"; then
+      DOMAIN=$d
+      while :; do
+        local pd="panel.$DOMAIN"
+        ask_tty "Поддомен панели [$pd]: " || { PANEL_DOMAIN=$pd; break; }
+        PANEL_DOMAIN=${REPLY,,}; PANEL_DOMAIN=${PANEL_DOMAIN//[[:space:]]/}
+        [[ -n $PANEL_DOMAIN ]] || PANEL_DOMAIN=$pd
+        [[ $PANEL_DOMAIN != "$DOMAIN" && $PANEL_DOMAIN =~ $re_host ]] || { warn "Укажите отдельный корректный поддомен, например panel.$DOMAIN"; continue; }
+        domain_points_here "$PANEL_DOMAIN" && break
+      done
+      PANEL_ON=domain
+      return 0
+    fi
     prev=$d
     ask_tty "Enter – проверить ещё раз (DNS обновляется не сразу), s – стандартный сайт, q – выйти: " || return 0
     REPLY=${REPLY//[[:space:]]/}
@@ -389,6 +402,7 @@ issue_domain_cert() {
   ufw_open_80
   if [[ -s $DOMAIN_CERT_DIR/fullchain.pem && -s $DOMAIN_CERT_DIR/privkey.pem ]] \
     && openssl x509 -in "$DOMAIN_CERT_DIR/fullchain.pem" -noout -checkhost "$DOMAIN" 2>/dev/null | grep -q 'does match' \
+    && { [[ -z $PANEL_DOMAIN ]] || openssl x509 -in "$DOMAIN_CERT_DIR/fullchain.pem" -noout -checkhost "$PANEL_DOMAIN" 2>/dev/null | grep -q 'does match'; } \
     && openssl x509 -in "$DOMAIN_CERT_DIR/fullchain.pem" -noout -issuer 2>/dev/null | grep -q "Let's Encrypt" \
     && openssl x509 -in "$DOMAIN_CERT_DIR/fullchain.pem" -noout -checkend 864000 >/dev/null 2>&1; then
     say "Сертификат для ${B}$DOMAIN${N} уже есть"
@@ -403,7 +417,11 @@ issue_domain_cert() {
   spin_start "Жду ответа Let's Encrypt"
   for try in 1 2 3; do
     rc=0
-    "$acme" --issue -d "$DOMAIN" --standalone --httpport 80 --server letsencrypt --keylength ec-256 ${rc_force:-} >>"$log" 2>&1 || rc=$?
+    if [[ -n $PANEL_DOMAIN ]]; then
+      "$acme" --issue -d "$DOMAIN" -d "$PANEL_DOMAIN" --standalone --httpport 80 --server letsencrypt --keylength ec-256 ${rc_force:-} >>"$log" 2>&1 || rc=$?
+    else
+      "$acme" --issue -d "$DOMAIN" --standalone --httpport 80 --server letsencrypt --keylength ec-256 ${rc_force:-} >>"$log" 2>&1 || rc=$?
+    fi
     [[ $rc == 0 || $rc == 2 ]] && break
     local rc_force="--force"
     sleep 10
@@ -730,7 +748,7 @@ main() {
   elif ! sni_ok "$SNI"; then
     die "$SNI не отвечает по TLS 1.3 + HTTP/2 – REALITY с ним работать не будет. Выберите другой сайт."
   fi
-  LINK_HOST=${DOMAIN:-$HOST}
+  LINK_HOST=${PANEL_DOMAIN:-${DOMAIN:-$HOST}}
   [[ $PANEL_ON == ip || -n $DOMAIN ]] || { PANEL_ON=ip; later "--panel-on domain нужен со своим доменом: панель и подписка открываются по IP."; }
   # Режим «всё на 443»: XHTTP и MTProto различаются по имени сайта, берём и им соседей по подсети.
   if [[ $TRUSTED == yes && $multi == no && ( -z $SNI2 || -z $SNI3 ) ]]; then
@@ -931,7 +949,7 @@ main() {
   # --- итог ---
   local panel_url links
   local ph=$HOST
-  if [[ $PANEL_ON == domain ]]; then ph=$DOMAIN; SUB_URL=${SUB_URL/\/\/$HOST\//\/\/$DOMAIN\/}; fi
+  if [[ $PANEL_ON == domain ]]; then ph=${PANEL_DOMAIN:-$DOMAIN}; SUB_URL=${SUB_URL/\/\/$HOST\//\/\/$ph\/}; fi
   if [[ $SINGLE == yes ]]; then
     panel_url="https://$ph/${XUI_WEB_BASE_PATH#/}"
     panel_url="${panel_url%/}/"
