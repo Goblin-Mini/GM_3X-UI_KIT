@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Независимое управление TorrServer MatriX, Prowlarr, JacRed-FDB и FlareSolverr.
+# Независимое управление TorrServer MatriX, Prowlarr и JacRed-FDB.
 Torr_PORT=8091
 PROWLARR_PORT=9696
 JACRED_PORT=9118
-FLARE_PORT=8191
 set -Eeuo pipefail
 [[ ${EUID} -eq 0 ]] || { echo "Запустите от root." >&2; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
@@ -99,6 +98,8 @@ install_prowlarr(){
  rm -rf "$BASE/prowlarr/current.old"
  [[ ! -d "$BASE/prowlarr/current" ]] || mv "$BASE/prowlarr/current" "$BASE/prowlarr/current.old"
  mv "$BASE/prowlarr/current.new" "$BASE/prowlarr/current"
+ # Явно выставляем права на запуск бинарника, чтобы исключить systemd 203/EXEC из-за mode.
+ chmod 755 "$BASE/prowlarr/current" "$BASE/prowlarr/current/Prowlarr"
  id prowlarr >/dev/null 2>&1 || useradd --system --home /var/lib/prowlarr --shell /usr/sbin/nologin prowlarr
  # Всегда применяем выбранный порт: существующий config.xml не должен сохранять старый порт.
  need python3
@@ -241,30 +242,6 @@ jacred_db(){
  systemctl is-active --quiet jacred || die "JacRed не запустился после обновления базы; резервная копия: $backup"
  say "База загружена. Предыдущая Data сохранена: $backup"
 }
-install_flaresolverr(){
- need curl; need ss
- if ! command -v docker >/dev/null 2>&1; then
-  say "Устанавливаю Docker для FlareSolverr"
-  apt-get update -qq
-  apt-get install -y docker.io
- fi
- systemctl enable --now docker
- docker info >/dev/null 2>&1 || die "Docker не запустился. Проверьте systemctl status docker"
- if ! docker ps -a --format "{{.Names}}" | grep -qx flaresolverr; then
-  port_free "$FLARE_PORT"
- elif docker ps --filter name=^/flaresolverr$ --format "{{.Ports}}" | grep -q "127.0.0.1:$FLARE_PORT"; then
-  :
- else
-  docker rm -f flaresolverr >/dev/null 2>&1 || true
-  port_free "$FLARE_PORT"
- fi
- docker pull ghcr.io/flaresolverr/flaresolverr:latest
- docker rm -f flaresolverr >/dev/null 2>&1 || true
- docker run -d --name flaresolverr --restart unless-stopped \
-  -p "127.0.0.1:$FLARE_PORT:8191" -e LOG_LEVEL=info \
-  --tmpfs /tmp:size=256M,mode=1777 ghcr.io/flaresolverr/flaresolverr:latest >/dev/null
- say "FlareSolverr запущен: http://127.0.0.1:$FLARE_PORT (доступ только локально)"
-}
 check_services(){
  local s
  for s in torrserver prowlarr jacred; do
@@ -275,23 +252,16 @@ check_services(){
  [[ ! -f "$STATE/torrserver.port" ]] || echo "TorrServer: http://127.0.0.1:$(cat "$STATE/torrserver.port")"
  [[ ! -f /var/lib/prowlarr/config.xml ]] || echo "Prowlarr: порт $(sed -n 's/.*<Port>\\([0-9]*\\)<\\/Port>.*/\\1/p' /var/lib/prowlarr/config.xml)"
  [[ ! -d /opt/jacred ]] || echo "JacRed: http://127.0.0.1:$JACRED_PORT"
- if docker ps -a --format "{{.Names}}" 2>/dev/null | grep -qx flaresolverr; then
-  docker ps --filter name=^/flaresolverr$ --format "FlareSolverr: {{.Status}}"
- else echo "FlareSolverr: не установлен"; fi
 }
 service_control(){
  local svc=$1 act=$2
- case "$svc" in flaresolverr)
-   case "$act" in start) docker start flaresolverr;; stop) docker stop flaresolverr;; restart) docker restart flaresolverr;; status) docker ps -a --filter name=^/flaresolverr$;; *) die "Действие: start|stop|restart|status";; esac; return;;
-  torrserver|prowlarr|jacred);; *) die "Неизвестный сервис";; esac
- case "$act" in start|stop|restart|status) systemctl "$act" "$svc" --no-pager;; *) die "Действие: start|stop|restart|status";; esac
+  case "$act" in start|stop|restart|status) systemctl "$act" "$svc" --no-pager;; *) die "Действие: start|stop|restart|status";; esac
 }
 remove_service(){
  local svc=$1 confirm
- case "$svc" in torrserver|prowlarr|jacred|flaresolverr);; *) die "Неизвестный сервис";; esac
+ case "$svc" in torrserver|prowlarr|jacred);; *) die "Неизвестный сервис";; esac
  read -r -p "Полностью удалить $svc вместе с настройками и базой данных? [y/N] " confirm
  [[ ${confirm,,} == y ]] || { say "Отменено."; return; }
- if [[ "$svc" == flaresolverr ]]; then docker rm -f flaresolverr 2>/dev/null || true; docker image rm ghcr.io/flaresolverr/flaresolverr:latest 2>/dev/null || true; say "FlareSolverr удалён."; return; fi
  systemctl disable --now "$svc" 2>/dev/null || true
  case "$svc" in
   torrserver)
@@ -323,7 +293,6 @@ menu(){
   echo "1. Установить / обновить TorrServer MatriX"
   echo "2. Установить / обновить Prowlarr"
   echo "3. Установить / обновить JacRed-FDB"
-  echo "4. Установить / обновить FlareSolverr"
   echo "5. Загрузить базу JacRed (снимок)"
   echo "6. Проверить сервисы и адреса"
   echo "7. Управление сервисом (запуск / остановка / перезапуск / статус)"
@@ -334,7 +303,6 @@ menu(){
    1) install_torr "$Torr_PORT";;
    2) install_prowlarr "$PROWLARR_PORT";;
    3) install_jacred "$JACRED_PORT";;
-   4) install_flaresolverr;;
    5) jacred_db;;
    6) check_services;;
    7)
@@ -342,9 +310,8 @@ menu(){
     echo "1. TorrServer MatriX"
     echo "2. Prowlarr"
     echo "3. JacRed-FDB"
-    echo "4. FlareSolverr"
     read -r -p "Номер сервиса: " n
-    case "$n" in 1) s=torrserver;; 2) s=prowlarr;; 3) s=jacred;; 4) s=flaresolverr;; *) echo "Нет такого номера"; continue;; esac
+    case "$n" in 1) s=torrserver;; 2) s=prowlarr;; 3) s=jacred;;  *) echo "Нет такого номера"; continue;; esac
     echo "Действие:"
     echo "1. Запустить"
     echo "2. Остановить"
@@ -358,9 +325,8 @@ menu(){
     echo "1. TorrServer MatriX"
     echo "2. Prowlarr"
     echo "3. JacRed-FDB"
-    echo "4. FlareSolverr"
     read -r -p "Номер сервиса: " n
-    case "$n" in 1) s=torrserver;; 2) s=prowlarr;; 3) s=jacred;; 4) s=flaresolverr;; *) echo "Нет такого номера"; continue;; esac
+    case "$n" in 1) s=torrserver;; 2) s=prowlarr;; 3) s=jacred;;  *) echo "Нет такого номера"; continue;; esac
     remove_service "$s";;
    0|"") return;;
    *) echo "Нет такого пункта";;
