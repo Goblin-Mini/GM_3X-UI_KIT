@@ -226,7 +226,6 @@ install_flaresolverr(){
  docker run -d --name flaresolverr --restart unless-stopped -p 127.0.0.1:${FLARESOLVERR_PORT}:8191 -e LOG_LEVEL=info --tmpfs /tmp:size=256M,mode=1777 ghcr.io/flaresolverr/flaresolverr:latest >/dev/null
  for _ in {1..30}; do
   if curl -fsS "http://127.0.0.1:${FLARESOLVERR_PORT}/" >/dev/null 2>&1; then
-   open_service_port "$FLARESOLVERR_PORT"
    say "FlareSolverr доступен: http://127.0.0.1:${FLARESOLVERR_PORT}"
    return 0
   fi
