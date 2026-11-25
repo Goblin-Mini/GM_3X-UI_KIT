@@ -968,7 +968,19 @@ KITWRAPPER
   # Ссылка MTProto в панели: адрес сервера и порт 443 (панель берёт их из таблицы hosts).
   [[ $SINGLE == yes ]] && { /usr/local/bin/kit __mtproto >/dev/null 2>&1 || later "Ссылка MTProto в панели осталась с внутренним портом: берите её из kit user link имя --telegram"; }
   if [[ $PANEL_ON == domain ]]; then
-    /usr/local/bin/kit net panel domain >/dev/null 2>&1 || { PANEL_ON=ip; later "Панель и подписку по домену включить не удалось: оставил по IP. Попробуйте позже: kit net panel domain"; }
+    /usr/local/bin/kit net panel domain >/dev/null 2>&1 || { PANEL_ON=ip; later "Панель по домену включить не удалось: оставил прежний режим панели. Попробуйте позже: kit net panel domain"; }
+  fi
+  # 3X-UI строит адреса карточек подписки из setting.subURI, независимо от LINK_HOST в kit-sub.
+  # Поэтому отдельно записываем выбранный пользователем домен панели (PANEL_DOMAIN), а не IP сервера.
+  if [[ -n ${PANEL_DOMAIN:-} ]]; then
+    local sub_settings sub_uri
+    sub_uri="https://${PANEL_DOMAIN}${SUB_PATH}"
+    sub_settings=$(api POST setting/all '{}') || sub_settings=""
+    if [[ -n $sub_settings ]] && api POST setting/update "$(jq -c --arg u "$sub_uri" '.subURI = $u' <<<"$sub_settings")" >/dev/null; then
+      say "Адрес подписок 3X-UI: $sub_uri"
+    else
+      later "Не удалось записать домен подписки в 3X-UI. Исправить: kit net panel domain или проверьте настройки подписки в панели."
+    fi
   fi
   brand_xui_menu
   # Автообновление kit и kit-sub: только подписанные релизы, выключается kit update --manual.
