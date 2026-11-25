@@ -393,7 +393,9 @@ choose_masking() {
         domain_points_here "$PANEL_DOMAIN" && break
       done
       # Поддомен панели обслуживается основным web-upstream nginx; не добавляем пути панели в landing-блок REALITY.
-      PANEL_ON=ip
+      # Свой домен и отдельный поддомен панели выбраны пользователем:
+      # используем их сразу, не переключаем итоговые адреса обратно на IP.
+      PANEL_ON=domain
       return 0
     fi
     prev=$d
@@ -527,18 +529,12 @@ wait_panel() {
 # Пасхалка – только в конце установки.
 kit_banner() {
   echo
-  printf '%s' "$G"
-  cat <<'ART'
-  _ _                   _   _          _          _      _
- (_) |_ ___ _ __   ___ | |_| | ___   _| |__  _ __(_) ___| | __
- | | __/ __| '_ \ / _ \| __| |/ / | | | '_ \| '__| |/ __| |/ /
- | | |_\__ \ | | | (_) | |_|   <| |_| | |_) | |  | | (__|   <
- |_|\__|___/_| |_|\___/ \__|_|\_\\__,_|_.__/|_|  |_|\___|_|\_\
-ART
-  printf '%s' "$N"
+  printf '%s\n' "${Y}╔══════════════════════════════════════════════╗"
+  printf '%s\n' "║                  SERVER KIT                  ║"
+  printf '%s\n' "╚══════════════════════════════════════════════╝${N}"
+  printf '%s\n' "${D}             ULTIMATE SERVER TOOLKIT${N}"
   echo
-  echo "${B}3X-UI KIT $KIT_VERSION${N}  ·  it's not Kubrick. it's just a VPN."
-  echo "${D}на основе панели 3X-UI (MHSanaei/3x-ui) и ядра Xray · github.com/itsnotkubrick/3X-UI_KIT${N}"
+  echo "${D}3X-UI · Xray · дополнительные серверные компоненты · $KIT_VERSION${N}"
 }
 
 main() {
@@ -1010,7 +1006,7 @@ KITWRAPPER
     panel_url="https://$ph/${XUI_WEB_BASE_PATH#/}"
     panel_url="${panel_url%/}/"
   elif [[ $TRUSTED == yes ]]; then
-    panel_url="https://$HOST:$XUI_PANEL_PORT/$XUI_WEB_BASE_PATH"
+    panel_url="https://$ph:$XUI_PANEL_PORT/$XUI_WEB_BASE_PATH"
   else
     panel_url="http://127.0.0.1:$XUI_PANEL_PORT/$XUI_WEB_BASE_PATH  (через SSH-туннель: ssh -L $XUI_PANEL_PORT:127.0.0.1:$XUI_PANEL_PORT root@$HOST)"
   fi
@@ -1702,7 +1698,7 @@ install_kit_cli() {
   {
     printf 'HOST=%q\n' "$HOST"
     printf 'LINK_HOST=%q\n' "${LINK_HOST:-$HOST}"
-    printf 'PANEL_ON=%q\n' "ip"
+    printf 'PANEL_ON=%q\n' "${PANEL_ON:-ip}"
     printf 'SUB_BASE=%q\n' "${SUB_URL%$SUBID}"
     printf 'SUB_PATH=%q\n' "$SUB_PATH"
     printf 'SUB_INTERNAL=%q\n' "${SUB_INTERNAL:-$SUB_PORT}"
