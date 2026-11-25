@@ -1627,7 +1627,7 @@ detect_country_prefix() {
   # Геоданные сохраняются между запусками, чтобы не обращаться к API при каждом обновлении.
   if [[ -f /etc/kit/kit.env ]]; then
     local saved saved_flag
-    saved=$(sed -n 's/^COUNTRY_PREFIX=//p' /etc/kit/kit.env | tail -n1 | tr -d "'\\"" )
+    saved=$(sed -n 's/^COUNTRY_PREFIX=//p' /etc/kit/kit.env | tail -n1 | sed "s/^['\"]//;s/['\"]$//")
     saved_flag=$(sed -n 's/^COUNTRY_FLAG=//p' /etc/kit/kit.env | tail -n1 | sed "s/^['\\\"]//;s/['\\\"]$//")
     if [[ $saved =~ ^[A-Z]{2}$ ]]; then
       COUNTRY_PREFIX=$saved
