@@ -155,6 +155,7 @@ EOF
  chown -R prowlarr:prowlarr "$BASE/prowlarr" /var/lib/prowlarr
  systemctl daemon-reload; systemctl enable --now prowlarr
  systemctl is-active --quiet prowlarr || die "Prowlarr не запустился (journalctl -u prowlarr -n 80)"
+ open_service_port "$port"
  say "Prowlarr $latest работает: http://127.0.0.1:$port"
 }
 install_jacred(){
@@ -217,6 +218,7 @@ PYCFG
  chown jacred:jacred /opt/jacred/init.yaml /opt/jacred/init.conf 2>/dev/null || true
  systemctl restart jacred
  systemctl is-active --quiet jacred || die "JacRed не запустился (journalctl -u jacred -n 80)"
+ open_service_port "$port"
  say "JacRed работает на http://127.0.0.1:$port; health: curl -fsS http://127.0.0.1:$port/health"
  say "FileDB может быть пустой. Снимок загружается отдельным пунктом меню."
 }
