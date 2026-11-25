@@ -868,6 +868,7 @@ main() {
 
   # --- подключения: все выбранные протоколы, один subId на пользователя ---
   step "Подключения"
+  detect_country_prefix
   EXISTING=$(api GET inbounds/list | normalize_inbound_remarks)
   SUBID=""
   # «Всё на 443» – для новых установок с доверенным сертификатом. Старую многопортовую
