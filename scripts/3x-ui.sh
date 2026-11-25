@@ -48,7 +48,8 @@ XUI_VERSION="latest"
 # SHA официального Git blob install.sh, получаем из GitHub API для выбранного стабильного тега.
 XUI_INSTALL_BLOB_SHA=""
 KIT_VERSION="1.2.1"
-COUNTRY_PREFIX="" # ISO-3166-1 alpha-2; filled by detect_country_prefix() before subscription setup.
+COUNTRY_PREFIX="" # ISO-3166-1 alpha-2; filled before subscription setup.
+COUNTRY_FLAG="🌐" # Country flag emoji used in 3X-UI inbound remarks.
 # kit и kit-sub берём из того же релиза, что и этот скрипт, а не из меняющейся ветки main.
 KIT_RAW="https://raw.githubusercontent.com/Goblin-Mini/GM_3X-UI_KIT/fix/full-installer-domain-services-country-prefix"
 # Ядро Xray для панели. С 26.7.x клиенты на Mihomo и sing-box (Hiddify, FlClash,
@@ -867,7 +868,7 @@ main() {
 
   # --- подключения: все выбранные протоколы, один subId на пользователя ---
   step "Подключения"
-  EXISTING=$(api GET inbounds/list)
+  EXISTING=$(api GET inbounds/list | normalize_inbound_remarks)
   SUBID=""
   # «Всё на 443» – для новых установок с доверенным сертификатом. Старую многопортовую
   # установку не переделываем: перенос работающих подключений – осознанное решение.
@@ -909,13 +910,17 @@ main() {
   # Сайты XHTTP и MTProto – из самих подключений: при повторном запуске они остаются от прошлого раза, а не выбранные сейчас.
   if [[ $SINGLE == yes ]]; then
     local sites
-    sites=$(api GET inbounds/list | jq -r '.[] | select(.listen == "127.0.0.1")
+    sites=$(api GET inbounds/list | normalize_inbound_remarks | jq -r '.[] | select(.listen == "127.0.0.1")
       | if .remark == "XHTTP" then (.streamSettings | if type == "string" then fromjson else . end).realitySettings.serverNames[0]
         elif .protocol == "mtproto" then (.settings | if type == "string" then fromjson else . end).fakeTlsDomain else empty end // empty')
     if grep -qE "$SNI_BRAND_RE" <<<"$sites"; then
       later "XHTTP или MTProto используют известный сайт из общего списка (достаточно соседей по подсети не нашлось). Заменить: kit → Протоколы, порты и маскировка → Сменить сайт маскировки"
     fi
   fi
+
+  # Флаг записывается непосредственно в remark подключений, как в 3x-ui-pro.
+  # Выполняется после всех операций, которым нужны исходные имена inbound.
+  apply_country_flag_to_remarks
 
   step "Защита и обновления"
   install_kit_cli
@@ -1587,23 +1592,66 @@ install_kit_services() {
   bash -n /usr/local/bin/kit-services || die "Установщик торрент-сервисов повреждён"
 }
 
+# Убираем префикс флага из копии списка для внутренних сравнений.
+# В самой панели remark остаётся с флагом; настройки inbound не затрагиваются.
+normalize_inbound_remarks() {
+  jq --arg prefix "${COUNTRY_FLAG:-🌐} " '
+    map(if ((.remark // "") | startswith($prefix))
+        then .remark |= .[($prefix | length):]
+        else . end)'
+}
+
+apply_country_flag_to_remarks() {
+  local list item id remark base updated response
+  list=$(api GET inbounds/list | normalize_inbound_remarks)
+  while IFS= read -r item; do
+    [[ -n $item ]] || continue
+    id=$(jq -r '.id // empty' <<<"$item")
+    remark=$(jq -r '.remark // empty' <<<"$item")
+    [[ -n $id && -n $remark ]] || continue
+    base=$remark
+    # Удаляем предыдущий флаг, чтобы при смене страны не накапливались префиксы.
+    base=$(python3 -c 'import sys,unicodedata; s=sys.argv[1]; i=0
+while i < len(s) and "REGIONAL INDICATOR" in unicodedata.name(s[i], ""): i += 1
+print(s[i+1:] if i == 2 and len(s) > 2 and s[2] == " " else (s[2:] if s.startswith("🌐 ") else s))' "$base")
+    updated="$COUNTRY_FLAG $base"
+    [[ $remark == "$updated" ]] && continue
+    updated=$(jq -c --arg r "$updated" '.remark=$r' <<<"$item")
+    response=$(curl -sSk -m 20 -H @<(printf 'Authorization: Bearer %s\n' "$TOKEN") -H 'Content-Type: application/json' -X POST --data-binary "$updated" "$API/inbounds/update/$id")
+    [[ $(jq -r '.success // false' <<<"$response") == true ]] || warn "Не удалось обновить флаг в remark подключения ID $id."
+  done < <(jq -c '.[]' <<<"$list")
+}
+
 detect_country_prefix() {
-  # При обновлении сохраняем ранее определённый код; геолокацию повторно не запрашиваем.
+  # Геоданные сохраняются между запусками, чтобы не обращаться к API при каждом обновлении.
   if [[ -f /etc/kit/kit.env ]]; then
-    local saved
-    saved=$(sed -n 's/^COUNTRY_PREFIX=//p' /etc/kit/kit.env | tail -n1 | tr -d "'\"" )
-    if [[ $saved =~ ^[A-Z]{2}$ ]]; then COUNTRY_PREFIX=$saved; return 0; fi
+    local saved saved_flag
+    saved=$(sed -n 's/^COUNTRY_PREFIX=//p' /etc/kit/kit.env | tail -n1 | tr -d "'\\"" )
+    saved_flag=$(sed -n 's/^COUNTRY_FLAG=//p' /etc/kit/kit.env | tail -n1 | sed "s/^['\\\"]//;s/['\\\"]$//")
+    if [[ $saved =~ ^[A-Z]{2}$ ]]; then
+      COUNTRY_PREFIX=$saved
+      [[ -n $saved_flag && $saved_flag != null ]] && COUNTRY_FLAG=$saved_flag
+      return 0
+    fi
   fi
   COUNTRY_PREFIX=""
-  local code=""
-  if command -v curl >/dev/null 2>&1; then
+  COUNTRY_FLAG="🌐"
+  local geo code flag
+  geo=$(curl -4fsS --connect-timeout 3 --max-time 8 https://ipwho.is/ 2>/dev/null || true)
+  if [[ -n $geo ]] && jq -e '.success == true' >/dev/null 2>&1 <<<"$geo"; then
+    code=$(jq -r '.country_code // empty' <<<"$geo" | tr '[:lower:]' '[:upper:]')
+    flag=$(jq -r '.flag.emoji // empty' <<<"$geo")
+    [[ $code =~ ^[A-Z]{2}$ ]] && COUNTRY_PREFIX=$code
+    [[ -n $flag && $flag != null ]] && COUNTRY_FLAG=$flag
+  fi
+  if [[ -z $COUNTRY_PREFIX ]]; then
     code=$(curl -4fsS --connect-timeout 3 --max-time 5 https://ipapi.co/country/ 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]' || true)
     [[ $code =~ ^[A-Z]{2}$ ]] && COUNTRY_PREFIX=$code
   fi
   if [[ -n $COUNTRY_PREFIX ]]; then
-    say "Страновой префикс подключений: [$COUNTRY_PREFIX]"
+    say "Страна сервера: $COUNTRY_FLAG [$COUNTRY_PREFIX]"
   else
-    warn "Не удалось определить страну VPS; подключения останутся без префикса."
+    warn "Не удалось определить страну VPS; в remark будет использован флаг 🌐."
   fi
 }
 
@@ -1619,6 +1667,7 @@ install_kit_cli() {
     printf 'SINGLE=%q\n' "$SINGLE"
     printf 'MTPROTO_INNER=%q\n' "${INNER[mtproto]}"
     printf 'COUNTRY_PREFIX=%q\n' "${COUNTRY_PREFIX:-}"
+    printf 'COUNTRY_FLAG=%q\n' "${COUNTRY_FLAG:-🌐}"
   } >/etc/kit/kit.env
   chmod 600 /etc/kit/kit.env
   install_kit_file
