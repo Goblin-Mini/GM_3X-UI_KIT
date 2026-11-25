@@ -579,6 +579,16 @@ main() {
   if [[ $install_mode == components ]]; then
     [[ $# -eq 0 ]] || die "--components-only нельзя сочетать с параметрами установки панели."
     install_kit_services
+    # На сервере без панели оставляем короткую команду kit для повторного входа
+    # в меню компонентов. При последующей установке панели обычный kit.sh заменит её.
+    if [[ ! -e /usr/local/bin/kit ]]; then
+      cat >/usr/local/bin/kit <<'KITWRAPPER'
+#!/usr/bin/env bash
+if [[ ${1:-} == services ]]; then shift; fi
+exec /usr/local/bin/kit-services "${@:-menu}"
+KITWRAPPER
+      chmod 755 /usr/local/bin/kit
+    fi
     exec /usr/local/bin/kit-services menu
   fi
 
