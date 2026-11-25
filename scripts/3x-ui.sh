@@ -48,6 +48,7 @@ XUI_VERSION="latest"
 # SHA официального Git blob install.sh, получаем из GitHub API для выбранного стабильного тега.
 XUI_INSTALL_BLOB_SHA=""
 KIT_VERSION="1.2.1"
+COUNTRY_PREFIX="" # ISO-3166-1 alpha-2; filled by detect_country_prefix() before subscription setup.
 # kit и kit-sub берём из того же релиза, что и этот скрипт, а не из меняющейся ветки main.
 KIT_RAW="https://raw.githubusercontent.com/Goblin-Mini/GM_3X-UI_KIT/fix/full-installer-domain-services-country-prefix"
 # Ядро Xray для панели. С 26.7.x клиенты на Mihomo и sing-box (Hiddify, FlClash,
