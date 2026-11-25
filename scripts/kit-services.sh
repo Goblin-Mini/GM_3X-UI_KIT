@@ -353,6 +353,36 @@ remove_service(){
  case "$svc" in torrserver|prowlarr|jacred|flaresolverr);; *) die "Неизвестный сервис";; esac
  read -r -p "Полностью удалить $svc вместе с настройками и базой данных? [y/N] " confirm
  [[ ${confirm,,} == y ]] || { say "Отменено."; return; }
+ # Считываем фактический порт ДО удаления конфигурации компонента.
+ local removed_port=""
+ case "$svc" in
+  torrserver) removed_port=$(cat "$STATE/torrserver.port" 2>/dev/null || echo "$Torr_PORT");;
+  prowlarr)
+   removed_port=$(python3 - <<'PYPORT'
+import xml.etree.ElementTree as ET
+try:
+    print(ET.parse("/var/lib/prowlarr/config.xml").findtext("Port") or "")
+except Exception:
+    print("")
+PYPORT
+)
+   [[ "$removed_port" =~ ^[0-9]{1,5}$ ]] || removed_port="$PROWLARR_PORT"
+   ;;
+  jacred)
+   removed_port=$(python3 - <<'PYPORT'
+import json
+from pathlib import Path
+p=Path("/opt/jacred/init.conf")
+try:
+    print(json.loads(p.read_text()).get("listenport", ""))
+except Exception:
+    print("")
+PYPORT
+)
+   [[ "$removed_port" =~ ^[0-9]{1,5}$ ]] || removed_port="$JACRED_PORT"
+   ;;
+  flaresolverr) removed_port="$FLARESOLVERR_PORT";;
+ esac
  systemctl disable --now "$svc" 2>/dev/null || true
  case "$svc" in
   torrserver)
@@ -379,13 +409,6 @@ remove_service(){
    ;;
  esac
  # Удаляем из UFW только порт удаляемого сервиса; остальные правила не трогаем.
- local removed_port=""
- case "$svc" in
-  torrserver) removed_port=$(cat "$STATE/torrserver.port" 2>/dev/null || echo "$Torr_PORT");;
-  prowlarr) removed_port=$(grep -oP '<Port>\\K[0-9]+' /var/lib/prowlarr/config.xml 2>/dev/null || echo "$PROWLARR_PORT");;
-  jacred) removed_port="$JACRED_PORT";;
-  flaresolverr) removed_port="$FLARESOLVERR_PORT";;
- esac
  systemctl daemon-reload
  if [[ "$removed_port" =~ ^[0-9]{1,5}$ ]] && command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
   ufw --force delete allow "$removed_port/tcp" >/dev/null 2>&1 || true
