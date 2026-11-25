@@ -551,10 +551,41 @@ main() {
   set -- ${args[@]+"${args[@]}"}
   [[ $EUID -eq 0 ]] || die "Запустите от root: sudo -i, затем команду ещё раз."
   command -v systemctl >/dev/null || die "Нужен systemd."
-  # kit-sub работает без root и получает конфиг через LoadCredential: он появился в systemd 247 (Ubuntu 22.04+, Debian 11+).
+
+  # Первый экран выбирает направление работы. Установка панели не меняется;
+  # отдельный режим компонентов открывает прежнее меню kit-services без установки 3X-UI.
+  local install_mode=panel mode_choice
+  if [[ ${1:-} == --components-only ]]; then
+    install_mode=components
+    shift
+  elif [[ ${1:-} == --panel ]]; then
+    shift
+  elif [[ $# -eq 0 && -t 0 && -t 1 ]]; then
+    echo
+    echo "${B}SERVER KIT — ULTIMATE SERVER TOOLKIT${N}"
+    echo
+    echo "${B}Что установить?${N}"
+    echo "  1. Панель 3X-UI KIT"
+    echo "  2. Только торрент-сервисы"
+    echo "  0. Выход"
+    read -r -p "Выбор [1]: " mode_choice </dev/tty || mode_choice=0
+    case ${mode_choice:-1} in
+      1) install_mode=panel ;;
+      2) install_mode=components ;;
+      0) say "Установка отменена."; return 0 ;;
+      *) die "Нет такого пункта." ;;
+    esac
+  fi
+  if [[ $install_mode == components ]]; then
+    [[ $# -eq 0 ]] || die "--components-only нельзя сочетать с параметрами установки панели."
+    install_kit_services
+    exec /usr/local/bin/kit-services menu
+  fi
+
+  # Ограничение systemd 247+ требуется службе подписок панели, но не отдельным компонентам.
   local sysv
   sysv=$(systemctl --version 2>/dev/null | awk 'NR == 1 {print $2}')
-  [[ $sysv =~ ^[0-9]+$ ]] && ((sysv < 247)) && die "Версия systemd ($sysv) слишком старая, нужна 247 и новее: Ubuntu 22.04 и новее, Debian 11 и новее. На этой системе подписка не запустится – поставьте поддерживаемую."
+  [[ $sysv =~ ^[0-9]+$ ]] && ((sysv < 247)) && die "Версия systemd ($sysv) слишком старая, нужна 247 и новее, чтобы работала подписка панели: Ubuntu 22.04+, Debian 11+."
   if [[ -f $RESULT && -x /usr/local/x-ui/x-ui ]]; then
     die "3X-UI уже установлена этим скриптом. Управление: команда x-ui, данные для входа: cat $RESULT"
   fi
