@@ -378,7 +378,19 @@ remove_service(){
    docker image rm ghcr.io/flaresolverr/flaresolverr:latest >/dev/null 2>&1 || true
    ;;
  esac
+ # Удаляем из UFW только порт удаляемого сервиса; остальные правила не трогаем.
+ local removed_port=""
+ case "$svc" in
+  torrserver) removed_port=$(cat "$STATE/torrserver.port" 2>/dev/null || echo "$Torr_PORT");;
+  prowlarr) removed_port=$(grep -oP '<Port>\\K[0-9]+' /var/lib/prowlarr/config.xml 2>/dev/null || echo "$PROWLARR_PORT");;
+  jacred) removed_port="$JACRED_PORT";;
+  flaresolverr) removed_port="$FLARESOLVERR_PORT";;
+ esac
  systemctl daemon-reload
+ if [[ "$removed_port" =~ ^[0-9]{1,5}$ ]] && command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
+  ufw --force delete allow "$removed_port/tcp" >/dev/null 2>&1 || true
+  say "UFW: правило TCP-порта $removed_port удалено"
+ fi
  rmdir "$STATE" "$BASE" 2>/dev/null || true
  say "$svc полностью удалён вместе с данными и конфигурацией."
 }
